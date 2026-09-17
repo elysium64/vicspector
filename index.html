@@ -14,7 +14,7 @@
         --rule2: #443c85;
         --tx: #e0dcff;
         --dim: #8f88cc;
-        --dimmer: #635c9e;
+        --dimmer: #8681b4;
 
         /* VIC-II hardware palette, used as the data legend */
         --c64-white: #ffffff;
@@ -26,11 +26,11 @@
         --c64-yellow: #bfce72;
         --c64-orange: #8b5429;
         --c64-brown: #574200;
-        --c64-ltred: #b86962;
+        --c64-ltred: #bc726b;
         --c64-dkgrey: #505050;
         --c64-grey: #787878;
         --c64-ltgreen: #94e089;
-        --c64-ltblue: #7869c4;
+        --c64-ltblue: #887bcb;
         --c64-ltgrey: #9f9f9f;
 
         --acc-c: var(--c64-yellow);
@@ -79,6 +79,12 @@
       .controls h1 {
         margin-right: 8px;
         align-self: center;
+      }
+      .ver {
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--dimmer);
+        vertical-align: baseline;
       }
       h2 {
         font-size: 12px;
@@ -346,7 +352,7 @@
       .lane.bus .cell {
         height: 34px;
         flex-direction: column;
-        gap: 0;
+        gap: 2px;
         padding: 2px 0;
       }
       .half {
@@ -1257,7 +1263,7 @@
   <body>
     <div class="wrap">
       <div class="controls">
-        <h1>VIC-II-spector</h1>
+        <h1>VIC-II-spector <span class="ver">v0.1</span></h1>
         <div class="ctl push-right">
           <label
             >Sprite DMA
@@ -2234,10 +2240,8 @@
                 nom +
                 " on paper, +" +
                 stalled +
-                " stolen)</span>"
-              : "") +
-            (stalled
-              ? '<br><span class="w">' +
+                " stolen)</span>" +
+                ' <span class="w">' +
                 useFree +
                 " of them spent free cycles</span>"
               : "") +
