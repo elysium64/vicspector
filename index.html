@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIC-II-spector</title>
+<style>
+:root{
+  /* ground: the C64's own blue, pushed dark enough to be a workspace */
+  --bg:#12102b;
+  --panel:#1b1845;
+  --panel2:#171438;
+  --rule:#332e6b;
+  --rule2:#443c85;
+  --tx:#e0dcff;
+  --dim:#8f88cc;
+  --dimmer:#635c9e;
+
+  /* VIC-II hardware palette, used as the data legend */
+  --c64-white:#ffffff;
+  --c64-red:#883932;
+  --c64-cyan:#67b6bd;
+  --c64-purple:#8b3f96;
+  --c64-green:#55a049;
+  --c64-blue:#40318d;
+  --c64-yellow:#bfce72;
+  --c64-orange:#8b5429;
+  --c64-brown:#574200;
+  --c64-ltred:#b86962;
+  --c64-dkgrey:#505050;
+  --c64-grey:#787878;
+  --c64-ltgreen:#94e089;
+  --c64-ltblue:#7869c4;
+  --c64-ltgrey:#9f9f9f;
+
+  --acc-c:var(--c64-yellow);
+  --acc-g:var(--c64-ltgreen);
+  --acc-p:var(--c64-ltred);
+  --acc-s:var(--c64-red);
+  --acc-r:var(--c64-orange);
+  --acc-i:#3d3868;
+
+  --hot:var(--c64-cyan);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  --col:22px;
+  --gut:126px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--tx);
+  font-family:var(--sans);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--c64-cyan)}
+h1{
+  font-family:var(--mono);
+  font-size:19px;
+  font-weight:600;
+  letter-spacing:-.01em;
+  margin:0;
+}
+h2{font-size:12px;font-weight:600;color:var(--dim);margin:0 0 8px;letter-spacing:.02em}
+p{margin:0 0 10px}
+
+.wrap{max-width:none;margin:0;padding:20px 18px 64px}
+
+header{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:baseline;margin-bottom:6px}
+header .sub{color:var(--dim);font-size:13px;max-width:62ch}
+
+/* ---------- controls ---------- */
+.controls{
+  display:flex;flex-wrap:wrap;gap:8px 22px;align-items:flex-start;
+  background:var(--panel2);
+  border:1px solid var(--rule);
+  border-radius:4px;
+  padding:11px 13px;
+  margin:16px 0 14px;
+}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl>label{font-size:11px;color:var(--dimmer);font-family:var(--mono)}
+.seg{display:flex;border:1px solid var(--rule2);border-radius:3px;overflow:hidden}
+.seg button{
+  font-family:var(--mono);font-size:12px;
+  background:transparent;color:var(--dim);
+  border:0;border-right:1px solid var(--rule2);
+  padding:5px 9px;cursor:pointer;white-space:nowrap;
+}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--tx);background:#241f52}
+.seg button[aria-pressed="true"]{background:var(--c64-ltblue);color:#0e0c24;font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--hot);outline-offset:-2px}
+
+.sprites{display:flex;gap:4px}
+.sp{
+  font-family:var(--mono);font-size:12px;width:26px;height:27px;
+  border:1px solid var(--rule2);border-radius:3px;
+  background:transparent;color:var(--dimmer);cursor:pointer;
+}
+.sp:hover{color:var(--tx)}
+.sp[aria-pressed="true"]{background:var(--c64-ltred);border-color:var(--c64-ltred);color:#160c0c;font-weight:700}
+.sp:focus-visible{outline:2px solid var(--hot);outline-offset:1px}
+
+.budget{
+  margin-left:auto;font-family:var(--mono);font-size:12px;
+  border-left:1px solid var(--rule);padding-left:18px;color:var(--dim);
+  min-width:180px;
+}
+.budget b{color:var(--c64-ltgreen);font-size:22px;font-weight:600;display:block;line-height:1.15}
+.budget b.tight{color:var(--c64-ltred)}
+.budget em{font-style:normal;color:var(--tx)}
+.budget .sub2{margin-top:6px;padding-top:6px;border-top:1px solid var(--rule)}
+.budget .ln{color:var(--c64-yellow);font-weight:600}
+.budget .ln.eq{color:var(--c64-ltgreen);font-size:15px}
+.budget .ln.eq.bad{color:var(--c64-ltred)}
+.budget .w{color:var(--dimmer)}
+
+/* ---------- chart ---------- */
+.chartbox{
+  border:1px solid var(--rule);border-radius:4px;
+  background:var(--panel2);overflow-x:auto;overflow-y:hidden;
+  position:relative;
+}
+.chart{min-width:max-content;position:relative}
+.lane{display:flex;align-items:stretch;border-bottom:1px solid #221e4d}
+.lane:last-child{border-bottom:0}
+.lane.gap{border-bottom:1px solid var(--rule2)}
+.lname{
+  flex:0 0 var(--gut);width:var(--gut);
+  font-family:var(--mono);font-size:10.5px;color:var(--dimmer);
+  padding:0 8px;display:flex;align-items:center;
+  position:sticky;left:0;z-index:3;
+  background:var(--panel2);
+  border-right:1px solid var(--rule2);
+}
+.lname i{font-style:normal;color:#4d4788;margin-left:5px}
+.cells{display:flex}
+.cell{
+  flex:0 0 var(--col);width:var(--col);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;
+  border-right:1px solid #1e1a45;
+  position:relative;
+}
+.cell.hl{background:rgba(103,182,189,.14)}
+.cell.pin{background:rgba(103,182,189,.22)}
+
+/* ruler */
+.lane.ruler .cell{height:26px;color:var(--dimmer);cursor:pointer;font-size:10.5px}
+.lane.ruler .cell.tick{color:var(--tx)}
+.lane.ruler .cell.hl,.lane.ruler .cell.pin{color:#0e0c24;background:var(--hot);font-weight:700}
+.lane.xcoo .cell{height:20px;color:#5b5490;font-size:9px}
+
+/* bus */
+.lane.bus .cell{height:34px;flex-direction:column;gap:0;padding:2px 0}
+.half{
+  width:calc(100% - 3px);height:13px;border-radius:1.5px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-weight:700;color:#100e26;
+}
+.half.a-c{background:var(--acc-c)}
+.half.a-g{background:var(--acc-g)}
+.half.a-p{background:var(--acc-p);color:#160c0c}
+.half.a-s{background:var(--acc-s);color:#f3d9d7}
+.half.a-r{background:var(--acc-r);color:#f7e6d6}
+.half.a-i{background:var(--acc-i);color:#7a73b8}
+.half.a-cpu{background:transparent;border:1px dashed #3d3868;color:#6d66aa;font-weight:500}
+.half.a-cpuw{background:transparent;border:1px dashed #6c5a3a;color:#a08a5e;font-weight:500}
+
+/* signal lanes */
+.lane.sig .cell{height:17px}
+.bar{width:100%;height:7px;background:#241f52;border-radius:1px}
+.bar.on{background:var(--c64-ltblue)}
+.bar.lo{background:#2a2458}
+.lane.sig .cell.edge .bar{box-shadow:inset 2px 0 0 var(--hot)}
+
+/* cpu lane */
+.lane.cpu .cell{height:19px;font-size:9.5px}
+.cpubox{width:calc(100% - 3px);height:12px;border-radius:1.5px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9px}
+.cpubox.free{background:var(--c64-ltgreen);color:#0f1f0d}
+.cpubox.wr{background:#6c5a3a;color:#ffe9c8}
+.cpubox.stall{background:#2a2458;color:#4b4586}
+
+/* sprite lanes */
+.lane.spr .cell{height:13px}
+.spb{width:calc(100% - 3px);height:8px;border-radius:1.5px;background:transparent}
+.spb.p{background:var(--acc-p)}
+.spb.s{background:var(--acc-s)}
+.spb.ba{background:#2f2a63}
+.lane.spr.off .lname{color:#3b3670}
+.lane.spr.off .spb{opacity:.28}
+
+/* screen strip */
+.lane.screen .cell{height:22px}
+.px{width:100%;height:100%}
+.px.border{background:var(--c64-ltblue)}
+.px.disp{background:var(--c64-blue)}
+.px.blank{background:#0b0a1c}
+.lane.screen .cell.hl .px{outline:2px solid var(--hot);outline-offset:-2px}
+
+/* events */
+.lane.ev .cell{height:22px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c64-yellow);box-shadow:0 0 0 3px rgba(191,206,114,.16)}
+.dot.b{background:var(--c64-cyan);box-shadow:0 0 0 3px rgba(103,182,189,.16)}
+.dot.s{background:var(--c64-ltred);box-shadow:0 0 0 3px rgba(184,105,98,.16)}
+
+/* trick highlight */
+.cell.trick::after{
+  content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,rgba(191,206,114,.20) 0 3px,transparent 3px 6px);
+  pointer-events:none;
+}
+
+/* ---------- legend ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:5px 16px;margin:9px 2px 0;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block}
+
+/* ---------- lower grid ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;margin-top:16px;align-items:start}
+.grid>div{order:1}
+.grid>.detailcol{order:2;position:sticky;top:12px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.grid>.detailcol{position:static}}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:14px 15px}
+
+/* detail */
+#detail .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--rule2);padding-bottom:9px;margin-bottom:11px}
+#detail .cy{font-family:var(--mono);font-size:27px;font-weight:600;color:var(--hot);line-height:1}
+#detail .cy small{font-size:12px;color:var(--dim);font-weight:400}
+#detail .tag{font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--rule2);border-radius:2px;padding:2px 6px}
+.kv{display:grid;grid-template-columns:82px 1fr;gap:5px 12px;font-size:12.5px;margin-bottom:12px}
+.kv dt{font-family:var(--mono);font-size:11px;color:var(--dimmer);padding-top:1px}
+.kv dd{margin:0}
+.kv code{font-family:var(--mono);font-size:11.5px;color:var(--c64-yellow);background:#221d4e;padding:1px 4px;border-radius:2px}
+.ops{list-style:none;margin:0;padding:0}
+.ops li{
+  font-size:12.5px;padding:5px 0 5px 13px;position:relative;
+  border-top:1px solid #241f52;
+}
+.ops li:first-child{border-top:0}
+.ops li::before{content:"";position:absolute;left:0;top:12px;width:5px;height:5px;border-radius:50%;background:var(--c64-yellow)}
+.ops li.sprite::before{background:var(--c64-ltred)}
+.ops li.border::before{background:var(--c64-cyan)}
+.ops li.trick::before{background:var(--c64-ltgreen)}
+.ops li b{font-weight:600}
+.ops li em{font-style:normal;color:var(--dim);display:block;font-size:11.5px;margin-top:1px}
+.ops code{font-family:var(--mono);font-size:11.5px;color:var(--c64-yellow)}
+
+/* tricks */
+.tricklist{display:flex;flex-direction:column;gap:0}
+.tk{
+  border-top:1px solid #241f52;padding:9px 0 9px 0;
+  display:grid;grid-template-columns:1fr auto;gap:3px 10px;align-items:start;
+}
+.tk:first-child{border-top:0}
+.tk h3{margin:0;font-size:13px;font-weight:600}
+.tk p{margin:0;font-size:12px;color:var(--dim);grid-column:1/-1;max-width:58ch}
+.tk button{
+  font-family:var(--mono);font-size:10.5px;background:transparent;color:var(--dim);
+  border:1px solid var(--rule2);border-radius:3px;padding:3px 8px;cursor:pointer;white-space:nowrap;
+}
+.tk button:hover{color:var(--tx);border-color:var(--c64-ltblue)}
+.tk button[aria-pressed="true"]{background:var(--c64-yellow);border-color:var(--c64-yellow);color:#1a1806;font-weight:700}
+.tk button:focus-visible{outline:2px solid var(--hot);outline-offset:1px}
+
+/* crunch calculator */
+.crunch{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
+.crunch label{font-family:var(--mono);font-size:11px;color:var(--dimmer);display:block;margin-bottom:4px}
+.crunch input{
+  font-family:var(--mono);font-size:15px;width:76px;padding:5px 7px;
+  background:#221d4e;color:var(--c64-yellow);border:1px solid var(--rule2);border-radius:3px;
+}
+.crunch input:focus{outline:2px solid var(--hot);outline-offset:-1px}
+.crout{font-family:var(--mono);font-size:12.5px;color:var(--dim);line-height:1.7}
+.crout b{color:var(--c64-ltgreen);font-size:16px}
+.crout u{text-decoration:none;color:var(--c64-ltred)}
+.formula{font-family:var(--mono);font-size:11px;color:var(--dimmer);background:#171338;border:1px solid var(--rule);border-radius:3px;padding:7px 9px;margin-top:9px;overflow-x:auto;white-space:nowrap}
+
+footer{margin-top:22px;font-size:12px;color:var(--dimmer);max-width:70ch}
+footer a{color:var(--c64-ltblue)}
+
+.hint{font-size:11.5px;color:var(--dimmer);font-family:var(--mono);margin:8px 2px 0}
+
+/* ---------- screen zone shading ---------- */
+.zones{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0}
+.zone{position:absolute;top:0;bottom:0}
+.zone.disp{background:rgba(120,105,196,.13)}
+.zone.blank{background:rgba(0,0,0,.34)}
+
+/* ---------- code lanes ---------- */
+.lane.code .cells,.lane.codeact .cells{position:relative}
+.lane.code .cell{height:24px}
+.lane.codeact .cell{height:24px}
+.ovl{position:absolute;inset:0;pointer-events:none}
+.blk.nom{pointer-events:auto;cursor:grab;touch-action:none;user-select:none}
+.blk.nom:hover{filter:brightness(1.22)}
+.blk.nom.dragging{cursor:grabbing;filter:brightness(1.35)}
+.blk.nom.sel{background:#4a4299;border-color:var(--hot);box-shadow:0 0 0 1px var(--hot)}
+.lane.code .cells{cursor:ew-resize}
+.blk{
+  position:absolute;top:2px;bottom:2px;
+  border-radius:2px;display:flex;align-items:center;
+  padding:0 4px;overflow:hidden;white-space:nowrap;
+  font-family:var(--mono);font-size:10px;font-weight:600;
+}
+.blk.nom{background:#3a3480;color:#cdc6ff;border:1px solid #4f47a8}
+.blk.act{background:var(--c64-ltgreen);color:#0f1f0d;border:1px solid #7cc472}
+.blk.act.slow{background:var(--c64-yellow);color:#1a1806;border-color:#a3b055}
+.blk.act.over{background:var(--c64-ltred);color:#1a0c0b;border-color:#9c5750}
+.blk .cost{margin-left:auto;opacity:.72;font-weight:400;padding-left:5px}
+.stallblk{
+  position:absolute;top:2px;bottom:2px;border-radius:2px;
+  background:repeating-linear-gradient(45deg,#3a2f5e 0 3px,#241d44 3px 6px);
+  border:1px solid #4a3d78;
+}
+.startmk{position:absolute;top:0;bottom:0;width:2px;background:var(--hot);z-index:2}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--rule2);margin-bottom:0}
+.tabs button{
+  font-family:var(--mono);font-size:12px;background:transparent;color:var(--dim);
+  border:1px solid transparent;border-bottom:0;border-radius:3px 3px 0 0;
+  padding:7px 13px;cursor:pointer;margin-bottom:-1px;
+}
+.tabs button:hover{color:var(--tx)}
+.tabs button[aria-selected="true"]{
+  background:var(--panel);border-color:var(--rule2);color:var(--tx);font-weight:600;
+}
+.tabs button:focus-visible{outline:2px solid var(--hot);outline-offset:-2px}
+.tabs .static{
+  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--tx);
+  background:var(--panel);border:1px solid var(--rule2);border-bottom:0;
+  border-radius:3px 3px 0 0;padding:7px 13px;margin-bottom:-1px;
+}
+.tabpanel{background:var(--panel);border:1px solid var(--rule2);border-top:0;border-radius:0 0 4px 4px;padding:14px 15px}
+
+/* ---------- planner ---------- */
+.plan-top{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.plan-top label{font-family:var(--mono);font-size:11px;color:var(--dimmer);display:block;margin-bottom:4px}
+.num{font-family:var(--mono);font-size:14px;width:62px;padding:5px 7px;background:#221d4e;color:var(--tx);border:1px solid var(--rule2);border-radius:3px}
+.num:focus{outline:2px solid var(--hot);outline-offset:-1px}
+.addbtn{font-family:var(--mono);font-size:12px;background:var(--c64-ltblue);color:#0e0c24;border:0;border-radius:3px;padding:7px 12px;cursor:pointer;font-weight:600}
+.addbtn:hover{filter:brightness(1.12)}
+.ghost{font-family:var(--mono);font-size:11.5px;background:transparent;color:var(--dim);border:1px solid var(--rule2);border-radius:3px;padding:6px 10px;cursor:pointer}
+.ghost:hover{color:var(--tx);border-color:var(--c64-ltblue)}
+.totals{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--dim);text-align:right}
+.totals b{display:block;font-size:19px;color:var(--c64-ltgreen)}
+.totals b.over{color:var(--c64-ltred)}
+
+table.plan{width:100%;border-collapse:collapse;font-size:12.5px}
+table.plan th{
+  text-align:left;font-family:var(--mono);font-size:10px;font-weight:400;
+  color:var(--dimmer);padding:0 6px 5px;border-bottom:1px solid var(--rule2);
+}
+table.plan td{padding:4px 6px;border-bottom:1px solid #241f52;vertical-align:middle}
+table.plan tr.selrow td{background:rgba(103,182,189,.09)}
+.atin{width:52px;font-size:12.5px;padding:3px 5px}
+td.lands{font-family:var(--mono);font-size:12px;color:var(--dim)}
+table.plan tr:last-child td{border-bottom:0}
+.itext{font-family:var(--mono);font-size:12.5px;width:100%;min-width:110px;background:#221d4e;color:var(--tx);border:1px solid var(--rule2);border-radius:3px;padding:4px 7px}
+.itext:focus{outline:2px solid var(--hot);outline-offset:-1px}
+.stepper{display:flex;align-items:center;gap:0;border:1px solid var(--rule2);border-radius:3px;width:max-content}
+.stepper button{background:transparent;border:0;color:var(--dim);font-family:var(--mono);font-size:13px;width:20px;height:24px;cursor:pointer}
+.stepper button:hover{color:var(--tx);background:#241f52}
+.stepper span{font-family:var(--mono);font-size:12.5px;width:20px;text-align:center;color:var(--tx)}
+.rw{display:flex;gap:2px}
+.rw button{
+  font-family:var(--mono);font-size:10px;width:17px;height:19px;cursor:pointer;
+  border:1px solid var(--rule2);border-radius:2px;background:transparent;color:var(--dimmer);
+}
+.rw button.w{background:#6c5a3a;border-color:#8a7248;color:#ffe9c8;font-weight:700}
+.rw button.r{color:#6d66aa}
+.cost{font-family:var(--mono);font-size:12.5px}
+.cost .up{color:var(--c64-yellow);font-weight:600}
+.cost .ok{color:var(--c64-ltgreen)}
+.del{background:transparent;border:0;color:#5b5490;cursor:pointer;font-size:15px;line-height:1;padding:2px 5px}
+.del:hover{color:var(--c64-ltred)}
+.plan-note{font-size:11.5px;color:var(--dimmer);margin-top:10px;max-width:78ch}
+
+/* ---------- crunch tab ---------- */
+.hgt{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.hgt button{
+  font-family:var(--mono);font-size:11.5px;padding:4px 9px;cursor:pointer;
+  background:transparent;color:var(--dim);border:1px solid var(--rule2);border-radius:3px;
+}
+.hgt button:hover{color:var(--tx);border-color:var(--c64-ltblue)}
+.hgt button[aria-pressed="true"]{background:var(--c64-ltgreen);border-color:var(--c64-ltgreen);color:#0f1f0d;font-weight:700}
+.sched{font-family:var(--mono);font-size:12.5px;line-height:2;word-break:break-word;margin-top:6px}
+.sched i{font-style:normal;color:var(--dim)}
+.sched b{color:var(--c64-yellow);font-weight:700}
+.sched .arrow{color:#4d4788;padding:0 1px}
+
+@media (prefers-reduced-motion:no-preference){
+  .cell,.bar,.spb{transition:background-color .08s linear}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>VIC-II-spector</h1>
+</header>
+
+<div class="controls">
+  <div class="ctl">
+    <label for="segModel">Chip</label>
+    <div class="seg" id="segModel"></div>
+  </div>
+  <div class="ctl">
+    <label for="segLine">Line type</label>
+    <div class="seg" id="segLine"></div>
+  </div>
+  <div class="ctl">
+    <label for="segCsel">Screen width</label>
+    <div class="seg" id="segCsel"></div>
+  </div>
+  <div class="ctl">
+    <label>Sprite DMA</label>
+    <div class="sprites" id="sprites"></div>
+  </div>
+  <div class="budget" id="budget"></div>
+</div>
+
+<div class="chartbox" id="chartbox">
+  <div class="chart" id="chart"></div>
+</div>
+
+<div class="legend">
+  <span><i class="sw" style="background:var(--acc-p)"></i>p — sprite pointer</span>
+  <span><i class="sw" style="background:var(--acc-s)"></i>s — sprite data</span>
+  <span><i class="sw" style="background:var(--acc-r)"></i>r — DRAM refresh</span>
+  <span><i class="sw" style="background:var(--acc-c)"></i>c — video matrix + colour RAM</span>
+  <span><i class="sw" style="background:var(--acc-g)"></i>g — chargen / bitmap</span>
+  <span><i class="sw" style="background:var(--acc-i)"></i>i — idle access ($3fff)</span>
+  <span><i class="sw" style="background:var(--c64-ltgreen)"></i>CPU free</span>
+  <span><i class="sw" style="background:#6c5a3a"></i>CPU writes only</span>
+</div>
+<div class="hint">Click a column to pin it. ← → to step, Esc to unpin. Drag a block in <b style="color:var(--dim);font-weight:600">your code</b> to reorder it, or drag the lane itself to slide the whole block.</div>
+
+<div class="grid">
+
+  <div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="tabpanel">
+
+      <div class="tabbody" data-tab="code">
+        <div class="plan-top">
+          <div>
+            <label for="startcy">Start at cycle</label>
+            <input id="startcy" class="num" type="number" min="1" value="1">
+          </div>
+          <button class="ghost" id="startpin" type="button">use pinned cycle</button>
+          <button class="addbtn" id="addins" type="button">+ instruction</button>
+          <button class="ghost" id="clearins" type="button">clear</button>
+          <span id="savenote" style="font-family:var(--mono);font-size:10.5px;color:var(--dimmer);padding-bottom:7px"></span>
+          <div class="totals" id="totals"></div>
+        </div>
+        <table class="plan"><thead><tr>
+          <th style="width:32%">instruction</th><th>cycles</th><th>R/W per cycle</th>
+          <th>at</th><th>real cost</th><th>lands on</th><th></th>
+        </tr></thead><tbody id="instrs"></tbody></table>
+        <p class="plan-note" id="plannote"></p>
+      </div>
+
+      <div class="tabbody" data-tab="tricks" hidden>
+        <div class="tricklist" id="tricks"></div>
+      </div>
+
+      <div class="tabbody" data-tab="crunch" hidden>
+        <p style="font-size:12.5px;color:var(--dim);max-width:64ch;margin-bottom:12px">
+          Clearing MxYE at cycle 15 catches the chip mid-decision over whether MCBASE should take MC
+          or keep its own value, and it takes a bit-interleaved mixture of both instead. Every offset
+          therefore has two successors &mdash; the ordinary +3 and the crunched one &mdash; and a loop
+          through that graph is a sprite of exactly that many lines.
+        </p>
+        <div class="crunch">
+          <div>
+            <label for="mcin">MCBASE / origin offset</label>
+            <input id="mcin" value="$35" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="crout" id="crout"></div>
+        </div>
+        <div id="heights"></div>
+        <div class="sched" id="schedule"></div>
+        <div class="formula">MCBASE = ((MC | MCBASE) &amp; 0x15) | ((MC &amp; MCBASE) &amp; 0x2a)&nbsp; &nbsp;// MC = (MCBASE + 3) mod 64</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="detailcol">
+    <div class="tabs"><span class="static">Cycle detail</span></div>
+    <div class="tabpanel" id="detail"></div>
+  </div>
+
+</div>
+
+<footer>
+  Built from Linus Åkesson's <a href="https://www.linusakesson.net/programming/vic-timing/" target="_blank" rel="noopener">VIC 6569/8565 timing chart</a>
+  and Christian Bauer's <a href="https://ist.uwaterloo.ca/~schepers/MJK/ascii/VIC-Article.txt" target="_blank" rel="noopener">The MOS 6567/6569 video controller (VIC-II) and its application in the Commodore 64</a> (1996).
+  Cycle-exact border and register timings are documented for the 6569; the NTSC parts shift the idle cycles and sprite 0–2 fetches, which is reflected above, but treat their border cycles as approximate.
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------
+   Chip models. Everything before cycle 56 is identical across parts:
+   sprites 3-7 fetch in 1-10, refresh 11-15, c 15-54, g 16-55.
+   The parts differ in how many idle cycles follow and where sprite 0 goes.
+------------------------------------------------------------------ */
+const MODELS = {
+  "6569": {label:"6569 PAL", cycles:63, s0p:58, xStart:0x194, xWrap:0x1f8, visFirst:0x1e0, visLast:0x17c, lines:312},
+  "6567R8": {label:"6567R8 NTSC", cycles:65, s0p:60, xStart:0x19c, xWrap:0x200, visFirst:0x1e9, visLast:0x18c, lines:263},
+  "6567R56A":{label:"6567R56A NTSC", cycles:64, s0p:59, xStart:0x19c, xWrap:0x200, visFirst:0x1e8, visLast:0x184, lines:262}
+};
+
+const LINETYPES = {
+  bad:  {label:"Bad line", badline:true,  display:true},
+  disp: {label:"Display", badline:false, display:true},
+  idle: {label:"Idle", badline:false, display:false}
+};
+
+const state = {
+  model:"6569",
+  line:"bad",
+  csel:1,
+  sprites:[false,false,false,false,false,false,false,false],
+  hover:null,
+  pin:null,
+  trick:null,
+  tab:"code",
+  crunchLen:null,
+  sel:new Set(),
+  code:{ start:1, instrs:[] }
+};
+
+/* ---------------- helpers ---------------- */
+const hex = (n,w=2)=>"$"+n.toString(16).padStart(w,"0");
+const M = ()=>MODELS[state.model];
+const N = ()=>M().cycles;
+const wrap = c => {const n=N(); return ((c-1)%n+n)%n+1;};
+
+function spriteP(i){ const m=M(); return i<3 ? m.s0p+2*i : 1+2*(i-3); }
+
+/* X coordinate at the start of a cycle (verified against Bauer's
+   lightpen example: LP in cycle 20 -> sprite coord $03c). */
+function xAt(c){ const m=M(); return (m.xStart + 8*(c-1)) % m.xWrap; }
+
+function isVisible(c){
+  const m=M(), x=xAt(c);
+  return m.visFirst<=m.visLast ? (x>=m.visFirst&&x<=m.visLast)
+                               : (x>=m.visFirst||x<=m.visLast);
+}
+
+/* border unit: left compare in cycle 17 (CSEL=1) / 18 (CSEL=0),
+   right compare in cycle 56 (CSEL=0) / 57 (CSEL=1) */
+const borderOffCycle = ()=> state.csel ? 17 : 18;
+const borderOnCycle  = ()=> state.csel ? 57 : 56;
+
+function inDisplayColumn(c){
+  const a=borderOffCycle(), b=borderOnCycle();
+  return c>=a && c<b;
+}
+
+/* ---------------- the model ---------------- */
+function buildLine(){
+  const n=N(), lt=LINETYPES[state.line];
+  const cyc=[];
+  for(let c=1;c<=n;c++) cyc.push({
+    c, x:xAt(c), ph1:null, ph2:null, ba:false, aec2:false,
+    cpu:"free", sprite:Array.from({length:8},()=>null), ops:[]
+  });
+  const at = c => cyc[wrap(c)-1];
+
+  /* --- BA low windows --- */
+  if(lt.badline) for(let c=12;c<=54;c++) at(c).ba=true;
+  for(let i=0;i<8;i++){
+    if(!state.sprites[i]) continue;
+    const p=spriteP(i);
+    for(let d=-3;d<=1;d++) at(p+d).ba=true;
+  }
+
+  /* --- AEC: VIC keeps the bus in phase 2 once BA has been low
+         for the three preceding cycles as well --- */
+  for(let c=1;c<=n;c++){
+    const o=at(c);
+    o.aec2 = o.ba && at(c-1).ba && at(c-2).ba && at(c-3).ba;
+  }
+
+  /* --- phase 1 accesses --- */
+  for(let c=11;c<=15;c++) at(c).ph1={t:"r"};
+  for(let c=16;c<=55;c++) at(c).ph1={t:"g"};
+  for(let i=0;i<8;i++){
+    const p=spriteP(i);
+    at(p).ph1={t:"p",spr:i};                                   // p-access always happens
+    if(state.sprites[i]) at(p+1).ph1={t:"s",spr:i,nth:2};
+    else at(p+1).ph1={t:"i"};
+  }
+  for(let c=1;c<=n;c++) if(!at(c).ph1) at(c).ph1={t:"i"};
+
+  /* --- phase 2: c-accesses on a bad line, s-accesses for DMA sprites --- */
+  if(lt.badline) for(let c=15;c<=54;c++) at(c).ph2={t:"c"};
+  for(let i=0;i<8;i++){
+    if(!state.sprites[i]) continue;
+    const p=spriteP(i);
+    at(p).ph2={t:"s",spr:i,nth:1};
+    at(p+1).ph2={t:"s",spr:i,nth:3};
+  }
+
+  /* --- CPU ---
+     Once AEC has followed BA low the 6510 is off the bus for the whole
+     second phase, whether or not the VIC actually wants that cycle.
+     Only the three lead-in cycles before AEC follows are still usable,
+     and then only for writes. */
+  for(let c=1;c<=n;c++){
+    const o=at(c);
+    if(o.aec2) o.cpu="stall";
+    else if(o.ba) o.cpu="write";     // RDY low, but writes still get through
+    else o.cpu="free";
+    if(!o.ph2) o.ph2={t:"cpu",cpu:o.cpu};
+  }
+
+  /* --- sprite lanes --- */
+  for(let i=0;i<8;i++){
+    const p=spriteP(i);
+    for(let d=-3;d<=1;d++) at(p+d).sprite[i]="ba";
+    at(p).sprite[i]="p";
+    if(state.sprites[i]){ at(p).sprite[i]="p"; at(p+1).sprite[i]="s"; }
+  }
+
+  addOps(cyc,at,lt);
+  return cyc;
+}
+
+/* ---------------- per-cycle internal operations ---------------- */
+function addOps(cyc,at,lt){
+  const push=(c,kind,title,detail)=>at(c).ops.push({kind,title,detail});
+  const n=N();
+
+  push(1,"","RASTER increments, raster IRQ compare",
+    "The negative edge of IRQ defines the start of the line. On raster line 0 the increment and the IRQ happen one cycle later.");
+
+  push(11,"","DRAM refresh begins — 5 accesses, cycles 11–15",
+    "REF counts down from $ff (reset in line 0), giving addresses $3fff, $3ffe, $3ffd … one row per access.");
+
+  push(14,"","VCBASE → VC, VMLI = 0" + (lt.badline?", RC = 0":""),
+    lt.badline
+      ? "First phase. Because there is a Bad Line Condition here, RC is reset too — this is why FLI code must not touch $d011 before cycle 14."
+      : "First phase. No Bad Line Condition, so RC keeps its value.");
+
+  if(lt.badline){
+    push(12,"","BA goes low — bad line DMA starts",
+      "The CPU can still complete up to three write cycles (12, 13, 14) before AEC follows and it loses the bus.");
+    push(15,"","First c-access (second phase)",
+      "One c-access in the second phase of every cycle 15–54: 12 bits, 8 from the video matrix and 4 from colour RAM, stored at VMLI.");
+    push(58,"","RC = 7 check, VC → VCBASE, RC++",
+      "First phase. If RC=7 the sequencer drops to idle state and VC is copied to VCBASE. If it is still in display state afterwards, RC is incremented.");
+  } else {
+    push(58,"","RC = 7 check, VC → VCBASE",
+      "First phase. Outside a bad line, this is where a finished text line hands VC back to VCBASE and the sequencer returns to idle state.");
+  }
+
+  push(16,"","g-accesses begin — 40 of them, cycles 16–55",
+    lt.display
+      ? "Display state: address comes from the character pointer (text) or VC/RC (bitmap). VC and VMLI increment after each one."
+      : "Idle state: every g-access reads $3fff ($39ff with ECM set) and the video matrix data is treated as all zero bits.");
+
+  /* sprite machinery */
+  push(15,"sprite","MCBASE += 2 for every sprite whose expansion flip-flop is set",
+    "First phase. Half of the +3 that a non-expanded sprite advances each line.");
+  push(16,"sprite","MCBASE += 1, then MCBASE = 63 → DMA and display off",
+    "First phase. Clearing MxYE in the second phase of cycle 15 makes this step land on Cr(MCBASE) instead — that is the sprite crunch.");
+  push(55,"sprite","MxYE toggles the expansion flip-flop; first DMA check",
+    "First phase. If MxE is set and the sprite Y coordinate equals the low 8 bits of RASTER, DMA switches on, MCBASE clears, and a set MxYE resets the expansion flip-flop.");
+  push(56,"sprite","Second DMA check",
+    "Same test as cycle 55, repeated. A sprite turned on between the two still gets its DMA.");
+  push(M().s0p,"sprite","MCBASE → MC for every sprite; sprite display switches on",
+    "First phase, together with sprite 0's p-access. A sprite whose DMA is on and whose Y matches RASTER starts displaying from here.");
+
+  /* border unit */
+  push(borderOffCycle(),"border","Left compare — main border flip-flop resets",
+    "X reaches "+(state.csel?"24 ($18)":"31 ($1f)")+". The border only opens if the vertical border flip-flop is clear. The Y comparison is also evaluated here.");
+  push(borderOnCycle(),"border","Right compare — main border flip-flop sets",
+    "X reaches "+(state.csel?"344 ($158)":"335 ($14f)")+". Switching CSEL from 1 to 0 exactly here is how the side borders come off.");
+  push(n,"border","Y compare for the vertical border flip-flop",
+    "Last cycle of the line. Bottom value sets it (247 / 251), top value clears it if DEN is set (55 / 51).");
+
+  /* trick annotations */
+  push(14,"trick","FLI: write $d011 from cycle 14 onwards",
+    "Earlier and RC is cleared every line, so the bitmap never advances. The cost is that the first three c-accesses read $ff — the 24-pixel stripes down the left edge.");
+  push(16,"trick","Sprite crunch window closes here",
+    "Clear MxYE in the second phase of cycle 15 to triple a line; clear it after cycle 16 instead and you get the whole sprite repeated.");
+  push(borderOnCycle(),"trick","Open the side borders here",
+    "CSEL 1 → 0 in this exact cycle and the right compare never matches. Switch back at cycle "+borderOffCycle()+" to keep it shut.");
+  push(13,"trick","Last clear chance to force a bad line for FPP",
+    "A $d011 write landing at cycle 13 or earlier still has YSCROLL matching when the RC check happens in the first phase of 14, so RC resets and the char row is one raster line tall.");
+  push(58,"trick","Doubled text lines / linecrunch pivot",
+    "Assert a Bad Line Condition in cycles 54–57 and RC increments past 7 instead of going idle, repeating the text line. Kill the condition before cycle 14 instead and VCBASE gains 40 — a crunched line.");
+}
+
+/* ---------------- tricks ---------------- */
+const TRICKS = [
+  {id:"fli", name:"FLI", cycles:()=>[14,15,16,17],
+   text:"Force a Bad Line Condition every raster line so the VIC re-reads colour data on each one. Touch $d011 at cycle 14 or later, and swap the video matrix with VM10–VM13 in $d018 because VCBASE never advances."},
+  {id:"badline", name:"Forced bad line", cycles:()=>[12,13,14,15,54], label:"12\u201354",
+   text:"Set YSCROLL in $d011 equal to the low three bits of RASTER and the Bad Line Condition asserts on the spot. Where in the line you do it decides what you get: before cycle 14 RC is reset, at 14 or later it is not, and past cycle 15 the c-accesses start late and the screen shifts. The condition also needs RASTER in $30-$f7 and DEN to have been set at some point in line $30."},
+  {id:"fpp", name:"FPP / 1px char lines", cycles:()=>[12,13,14], label:"before 14",
+   text:"Force the bad line before cycle 14 so RC is reset to zero on every raster line. Each char row is then one pixel tall, and since the g-access address is CB13-CB11 + character + RC, the pixel row you see is chosen purely by the charset base in $d018 \u2014 any line of the graphic on any raster line. This is the one cycle that separates it from FLI, which forces the bad line at 14 precisely so RC is left alone and keeps counting."},
+  {id:"borders", name:"Open the side borders", cycles:()=>[borderOnCycle(),borderOffCycle()],
+   text:"CSEL 1 → 0 in the right-compare cycle so the main border flip-flop is never set, then back to 1 at the left compare. The vertical flip-flop must already be clear or the main one cannot reset."},
+  {id:"crunch", name:"Sprite crunch / stretch", cycles:()=>[15,16,55,M().s0p],
+   text:"MCBASE advances +2 at cycle 15 and +1 at cycle 16. Clear MxYE between them and cycle 16 applies Cr(MCBASE) instead, so the same sprite line is fetched again — that is a tripled line, or a whole repeated sprite."},
+  {id:"fld", name:"FLD", cycles:()=>[14,55,56],
+   text:"Hold off the Bad Line Condition by keeping YSCROLL away from the low bits of RASTER. No bad line means no new text line, so the display stalls and everything below it slides down."},
+  {id:"dmadelay", name:"DMA delay", cycles:()=>[15,16,17,18,19,20],
+   text:"Create the Bad Line Condition somewhere in cycles 15–53 and the c-accesses start late, so VC ends the line off a multiple of 40. The whole screen shifts right by the number of cycles you were late — and stays shifted."},
+  {id:"linecrunch", name:"Linecrunch", cycles:()=>[12,13,14,58],
+   text:"Cancel the Bad Line Condition inside a bad line before cycle 14. RC is never reset, so at cycle 58 it is still 7: the sequencer goes idle and VCBASE picks up VC, 40 bytes further on."},
+  {id:"stableirq", name:"Stable raster", cycles:()=>[1,11,12,13,14],
+   text:"Cycle 11 is the only cycle a fully loaded line leaves alone. With all eight sprites and a bad line you get that one cycle plus three write-only cycles — enough for a double-IRQ stabiliser and very little else."}
+];
+
+const COL = 22;   // must match --col in the stylesheet
+
+/* Read/write pattern per instruction cycle. The 6510 halts on a read while
+   RDY is low, but write cycles always complete — which is exactly why the VIC
+   drops BA three cycles early, since no instruction has more than three
+   consecutive writes. So only the R cycles can be stolen. */
+const STORES = ["STA","STX","STY","SAX","SHA","SHX","SHY","SHS","TAS","AHX"];
+const RMW    = ["ASL","LSR","ROL","ROR","INC","DEC","SLO","SRE","RLA","RRA","ISC","ISB","DCP","DCM"];
+const PUSH   = ["PHA","PHP"];
+
+function derivePattern(text,n){
+  const m=(text||"").trim().toUpperCase().split(/[\s.]+/)[0];
+  const p=Array(n).fill("R");
+  if(m==="JSR" && n>=6){ p[3]="W"; p[4]="W"; }
+  else if(m==="BRK" && n>=7){ p[2]="W"; p[3]="W"; p[4]="W"; }
+  else if(RMW.includes(m) && n>=5){ p[n-1]="W"; p[n-2]="W"; }
+  else if(STORES.includes(m) && n>=3){ p[n-1]="W"; }
+  else if(PUSH.includes(m) && n>=3){ p[n-1]="W"; }
+  return p.join("");
+}
+
+/* localStorage is unavailable in some sandboxed viewers and throws on access,
+   so every call is guarded and the tool simply runs unsaved if it is missing. */
+const LSKEY="vic2-raster-planner-v1";
+let lsOK=true;
+const LS={
+  read(){ try{ return window.localStorage.getItem(LSKEY); }catch(e){ lsOK=false; return null; } },
+  write(v){ try{ window.localStorage.setItem(LSKEY,v); return true; }catch(e){ lsOK=false; return false; } },
+  wipe(){ try{ window.localStorage.removeItem(LSKEY); }catch(e){ lsOK=false; } }
+};
+
+function saveCode(){
+  LS.write(JSON.stringify({
+    start: state.code.start,
+    instrs: state.code.instrs.map(i=>({t:i.text, n:i.n, at:i.at, rw:i.rw, m:i.manual}))
+  }));
+  renderSaveNote();
+}
+
+function loadCode(){
+  const raw=LS.read();
+  if(!raw) return false;
+  try{
+    const o=JSON.parse(raw);
+    if(!o || !Array.isArray(o.instrs)) return false;
+    state.code.start = Math.max(1, Math.min(65, o.start|0 || 1));
+    state.code.instrs = o.instrs.slice(0,64).map(i=>{
+      const n = Math.max(2, Math.min(7, i.n|0 || 2));
+      const ins = mkInstr(String(i.t ?? "").slice(0,40), n, Math.max(1,Math.min(65, i.at|0 || 1)));
+      if(typeof i.rw === "string" && i.rw.length === n && /^[RW]+$/.test(i.rw)){
+        ins.rw = i.rw; ins.manual = !!i.m;
+      }
+      return ins;
+    });
+    if(!o.instrs.some(i=>i.at)){        // migrate saves made before per-instruction cycles
+      let t=state.code.start;
+      state.code.instrs.forEach(i=>{ i.at=t; t+=i.n; });
+    }
+    normalizeCode();
+    return true;
+  }catch(e){ return false; }
+}
+
+function renderSaveNote(){
+  const el=$("#savenote"); if(!el) return;
+  el.textContent = lsOK ? "saved in this browser" : "not saved \u2014 storage unavailable here";
+  el.style.color = lsOK ? "var(--dimmer)" : "var(--c64-orange)";
+}
+
+let nextId=1;
+function mkInstr(text,n,at){
+  return {id:nextId++, text, n, at:at||1, rw:derivePattern(text,n), manual:false};
+}
+function nextFreeCycle(){
+  const l=state.code.instrs;
+  return l.length ? Math.max(...l.map(i=>i.at+i.n)) : state.code.start;
+}
+function normalizeCode(){ state.code.instrs.sort((a,b)=>a.at-b.at || a.id-b.id); }
+
+/* Walk the instruction list along the real bus timeline. A read cycle cannot
+   execute while BA is low, so the CPU freezes mid-instruction and resumes
+   when BA goes high again. */
+function scheduleCode(){
+  normalizeCode();
+  const baAt = c => LINE[wrap(c)-1].ba;
+  const guard = 24*N();   // generous: a bad line with 8 sprites yields ~1 usable cycle per line
+  const rows=[];
+  let prevNom=-Infinity, prevAct=-Infinity;
+  state.code.instrs.forEach(ins=>{
+    /* An instruction starts where you put it, unless the one before it is
+       still running — then it slips. Any gap in between is simply yours. */
+    const nomFrom = Math.max(ins.at, prevNom+1);
+    prevNom = nomFrom + ins.n - 1;
+    let t = Math.max(ins.at, prevAct+1);
+    const from=t, segs=[]; let stalls=0, spun=0;
+    for(const rw of ins.rw){
+      while(rw==="R" && baAt(t) && spun<guard){ segs.push({t,stall:true}); t++; stalls++; spun++; }
+      segs.push({t,stall:false,rw}); t++;
+    }
+    prevAct=t-1;
+    rows.push({ins, nomFrom, nomTo:prevNom, from, to:prevAct, len:t-from, stalls, segs});
+  });
+  return {rows, endNom:prevNom===-Infinity?0:prevNom, endAct:prevAct===-Infinity?0:prevAct};
+}
+
+/* ---------------- rendering ---------------- */
+const $ = s=>document.querySelector(s);
+let LINE = [];
+
+function render(){
+  LINE = buildLine();
+  renderControls();
+  renderChart();
+  renderBudget();
+  renderDetail();
+  renderTricks();
+  renderTabs();
+  renderPlanner();
+  updateCrunch();
+}
+
+function seg(el,items,isOn,onPick){
+  el.innerHTML="";
+  items.forEach(it=>{
+    const b=document.createElement("button");
+    b.type="button"; b.textContent=it.label;
+    b.setAttribute("aria-pressed", isOn(it.key)?"true":"false");
+    b.onclick=()=>{onPick(it.key); render();};
+    el.appendChild(b);
+  });
+}
+
+function renderControls(){
+  seg($("#segModel"), Object.keys(MODELS).map(k=>({key:k,label:MODELS[k].label})),
+      k=>state.model===k, k=>{state.model=k; state.pin=null; state.hover=null;});
+  seg($("#segLine"), Object.keys(LINETYPES).map(k=>({key:k,label:LINETYPES[k].label})),
+      k=>state.line===k, k=>state.line=k);
+  seg($("#segCsel"), [{key:1,label:"40 col"},{key:0,label:"38 col"}],
+      k=>state.csel===k, k=>state.csel=k);
+
+  const sp=$("#sprites"); sp.innerHTML="";
+  for(let i=0;i<8;i++){
+    const b=document.createElement("button");
+    b.className="sp"; b.type="button"; b.textContent=i;
+    b.title="Sprite "+i+" DMA (fetches in cycles "+spriteP(i)+"–"+wrap(spriteP(i)+1)+")";
+    b.setAttribute("aria-pressed", state.sprites[i]?"true":"false");
+    b.onclick=()=>{state.sprites[i]=!state.sprites[i]; render();};
+    sp.appendChild(b);
+  }
+}
+
+function renderBudget(){
+  const n=N();
+  let free=0, wr=0;
+  LINE.forEach(o=>{ if(o.cpu==="free") free++; else if(o.cpu==="write") wr++; });
+
+  /* Executed cycles are counted every time they occur, not deduplicated by
+     wrap. Code that outruns the line therefore spends more free cycles than a
+     line has, and the remainder goes negative — which is the honest answer. */
+  const sched=scheduleCode();
+  let realCost=0, stalled=0, useFree=0, useWr=0;
+  sched.rows.forEach(r=>{
+    realCost+=r.len;
+    r.segs.forEach(sg=>{
+      if(sg.stall){ stalled++; return; }
+      const o=LINE[wrap(sg.t)-1];
+      if(o.cpu==="free") useFree++; else useWr++;
+    });
+  });
+  const leftFree=free-useFree, leftWr=wr-useWr;
+  const over=Math.max(0, sched.endAct-n);
+
+  const tight = free+wr <= 8;
+  let h='<b class="'+(tight?"tight":"")+'">'+free+'</b>CPU cycles free of '+n+
+        '<br><em>+'+wr+'</em> more if they are writes';
+  if(realCost){
+    const nom=sched.rows.reduce((a,r)=>a+r.ins.n,0);
+    h+='<div class="sub2">'+
+       '<span class="ln">&minus; '+realCost+'</span> used by your code'+
+       (stalled?' <span class="w">('+nom+' on paper, +'+stalled+' stolen)</span>':'')+
+       (stalled?'<br><span class="w">'+useFree+' of them spent free cycles</span>':'')+
+       '<br><span class="ln eq'+(leftFree<0?" bad":"")+'">= '+(leftFree<0?"\u2212"+(-leftFree):leftFree)+'</span> still free'+
+       (leftFree<0?' <span class="w">over budget</span>':'')+
+       (leftWr>0?' <span class="w">+'+leftWr+' write-only</span>':'')+
+       (over?'<br><span class="w">runs '+over+' cycle'+(over>1?"s":"")+' past the end of the line</span>':'')+
+       '</div>';
+  }
+  $("#budget").innerHTML=h;
+}
+
+function lane(cls,label,note){
+  const l=document.createElement("div");
+  l.className="lane "+cls;
+  const nm=document.createElement("div");
+  nm.className="lname";
+  nm.innerHTML=label+(note?' <i>'+note+'</i>':'');
+  const cells=document.createElement("div");
+  cells.className="cells";
+  l.append(nm,cells);
+  l._cells=cells;
+  return l;
+}
+
+function cellFor(l,o){
+  const d=document.createElement("div");
+  d.className="cell";
+  d.dataset.c=o.c;
+  l._cells.appendChild(d);
+  return d;
+}
+
+function renderChart(){
+  const chart=$("#chart");
+  chart.innerHTML="";
+  const trick = state.trick ? TRICKS.find(t=>t.id===state.trick) : null;
+  const trickCycles = trick ? trick.cycles().map(wrap) : [];
+
+  const lanes=[];
+
+  // ruler
+  const lr=lane("ruler","cycle");
+  LINE.forEach(o=>{
+    const d=cellFor(lr,o);
+    d.textContent=o.c;
+    if(o.c%5===0||o.c===1) d.classList.add("tick");
+  });
+  lanes.push(lr);
+
+  // x coordinate
+  const lx=lane("xcoo","X coord","sprite");
+  LINE.forEach(o=>{ cellFor(lx,o).textContent=o.x.toString(16); });
+  lanes.push(lx);
+
+  // screen strip
+  const ls=lane("screen","on screen");
+  LINE.forEach(o=>{
+    const d=cellFor(ls,o);
+    const px=document.createElement("div");
+    px.className="px "+(!isVisible(o.c)?"blank":(inDisplayColumn(o.c)?"disp":"border"));
+    d.appendChild(px);
+  });
+  ls.classList.add("gap");
+  lanes.push(ls);
+
+  // bus
+  const lb=lane("bus","VIC bus","ø1/ø2");
+  LINE.forEach(o=>{
+    const d=cellFor(lb,o);
+    d.appendChild(halfEl(o.ph1));
+    d.appendChild(halfEl(o.ph2));
+  });
+  lanes.push(lb);
+
+  // BA / AEC
+  const lba=lane("sig","BA");
+  LINE.forEach(o=>{
+    const d=cellFor(lba,o);
+    const b=document.createElement("div");
+    b.className="bar "+(o.ba?"lo":"on");
+    d.appendChild(b);
+  });
+  lanes.push(lba);
+
+  const laec=lane("sig","AEC","in ø2");
+  LINE.forEach(o=>{
+    const d=cellFor(laec,o);
+    const b=document.createElement("div");
+    b.className="bar "+(o.aec2?"lo":"on");
+    d.appendChild(b);
+  });
+  lanes.push(laec);
+
+  // CPU
+  const lc=lane("cpu","6510");
+  LINE.forEach(o=>{
+    const d=cellFor(lc,o);
+    const b=document.createElement("div");
+    b.className="cpubox "+(o.cpu==="free"?"free":o.cpu==="write"?"wr":"stall");
+    b.textContent = o.cpu==="free"?"·":o.cpu==="write"?"w":"";
+    d.appendChild(b);
+  });
+  lc.classList.add("gap");
+  lanes.push(lc);
+
+  // sprites
+  for(let i=0;i<8;i++){
+    const ln=lane("spr"+(state.sprites[i]?"":" off"),"sprite "+i,
+                  state.sprites[i]?"DMA on":"DMA off");
+    LINE.forEach(o=>{
+      const d=cellFor(ln,o);
+      const b=document.createElement("div");
+      b.className="spb "+(o.sprite[i]||"");
+      d.appendChild(b);
+    });
+    if(i===7) ln.classList.add("gap");
+    lanes.push(ln);
+  }
+
+  // code planner lanes
+  const sched=scheduleCode();
+  if(state.code.instrs.length){
+    const lco=lane("code","your code","drag \u00b7 shift-click");
+    LINE.forEach(o=>cellFor(lco,o));
+    lco._cells.appendChild(overlayNominal(sched));
+    lco._cells.addEventListener("pointerdown",e=>{
+      if(e.target.closest(".blk")) return;         // a pill handles its own drag
+      state.sel.clear();
+      beginDrag(e,"all",null);
+    });
+    lanes.push(lco);
+
+    const lca=lane("codeact","actual","with stalls");
+    LINE.forEach(o=>cellFor(lca,o));
+    lca._cells.appendChild(overlayActual(sched));
+    lca.classList.add("gap");
+    lanes.push(lca);
+  }
+
+  // events
+  const le=lane("ev","internal");
+  LINE.forEach(o=>{
+    const d=cellFor(le,o);
+    if(o.ops.length){
+      const k=o.ops.some(x=>x.kind==="sprite")?"s":o.ops.some(x=>x.kind==="border")?"b":"";
+      const dot=document.createElement("div");
+      dot.className="dot "+k;
+      dot.title=o.ops.map(x=>x.title).join(" · ");
+      d.appendChild(dot);
+    }
+  });
+  lanes.push(le);
+
+  chart.appendChild(zoneOverlay());          // tint sits behind the lanes
+  lanes.forEach(l=>chart.appendChild(l));
+
+  // decorate columns
+  chart.querySelectorAll(".cell").forEach(d=>{
+    const c=+d.dataset.c;
+    if(trickCycles.includes(c)) d.classList.add("trick");
+    if(state.pin===c) d.classList.add("pin");
+    else if(state.hover===c) d.classList.add("hl");
+  });
+
+  chart.onmousemove=e=>{
+    if(drag) return;
+    const cell=e.target.closest(".cell");
+    const c=cell?+cell.dataset.c:null;
+    if(c!==state.hover){ state.hover=c; repaintHighlight(); renderDetail(); }
+  };
+  chart.onmouseleave=()=>{ state.hover=null; repaintHighlight(); renderDetail(); };
+  chart.onclick=e=>{
+    if(suppressClick) return;
+    const cell=e.target.closest(".cell");
+    if(!cell) return;
+    const c=+cell.dataset.c;
+    state.pin = state.pin===c ? null : c;
+    repaintHighlight(); renderDetail();
+  };
+}
+
+/* Shading behind the lanes: the display window, and the blanked cycles
+   at either end of the line that never reach the screen at all. */
+function zoneOverlay(){
+  const n=N(), ov=document.createElement("div");
+  ov.className="zones";
+  ov.style.left="var(--gut)";
+  ov.style.width=(n*COL)+"px";
+  const band=(from,to,cls)=>{
+    const d=document.createElement("div");
+    d.className="zone "+cls;
+    d.style.left=((from-1)*COL)+"px";
+    d.style.width=((to-from+1)*COL)+"px";
+    ov.appendChild(d);
+  };
+  band(borderOffCycle(), borderOnCycle()-1, "disp");
+  let run=null;
+  for(let c=1;c<=n;c++){
+    if(!isVisible(c)){ if(!run) run=[c,c]; else run[1]=c; }
+    else if(run){ band(run[0],run[1],"blank"); run=null; }
+  }
+  if(run) band(run[0],run[1],"blank");
+  return ov;
+}
+
+function halfEl(a){
+  const h=document.createElement("div");
+  if(a.t==="cpu"){
+    h.className="half "+(a.cpu==="free"?"a-cpu":a.cpu==="write"?"a-cpuw":"a-cpu");
+    h.textContent = a.cpu==="write"?"w":"·";
+  } else {
+    h.className="half a-"+a.t;
+    h.textContent = a.t==="p" ? String(a.spr) : a.t;
+  }
+  return h;
+}
+
+function repaintHighlight(){
+  document.querySelectorAll("#chart .cell").forEach(d=>{
+    const c=+d.dataset.c;
+    d.classList.toggle("pin", state.pin===c);
+    d.classList.toggle("hl", state.pin!==c && state.hover===c);
+  });
+}
+
+/* ---------------- detail panel ---------------- */
+const ACCESS_TEXT = {
+  c:{n:"c-access — video matrix + colour RAM",
+     a:"VM13–VM10 from $d018, then VC9–VC0",
+     d:"12 bits: the character pointer or bitmap colour nybbles, plus 4 bits of colour RAM. Stored in the internal 40×12 line at VMLI."},
+  g:{n:"g-access — character generator / bitmap",
+     a:"text: CB13–CB11 + c-data + RC2–RC0 · bitmap: CB13 + VC9–VC0 + RC2–RC0",
+     d:"8 pixel bits into the shift register. In idle state the address is $3fff instead ($39ff with ECM set)."},
+  p:{n:"p-access — sprite data pointer",
+     a:"VM13–VM10 + $3f8 + sprite number",
+     d:"Read in every raster line whether the sprite is on or not, which is why you can change a sprite's shape mid-display."},
+  s:{n:"s-access — sprite data",
+     a:"MP7–MP0 from the p-access + MC5–MC0",
+     d:"Three per sprite per line, into the top, middle and bottom of the 24-bit shift register. MC increments after each."},
+  r:{n:"r-access — DRAM refresh",
+     a:"$3f00 | REF7–REF0",
+     d:"Five per line. REF is reset to $ff in line 0 and counts down, covering all 256 rows."},
+  i:{n:"idle access",
+     a:"$3fff (or $7fff / $bfff / $ffff by bank)",
+     d:"The VIC reads in every first phase whether it needs to or not. The byte is thrown away — though on many machines it is what you read back from $de00."}
+};
+
+function renderDetail(){
+  const el=$("#detail");
+  const c = state.pin ?? state.hover;
+  if(!c){
+    el.innerHTML='<p style="color:var(--dim);max-width:52ch">'+
+      'Move along the chart and this fills in: which access the VIC makes in each half cycle, what the CPU can still do, '+
+      'and which of the chip\'s internal counters change.</p>'+
+      '<p style="color:var(--dimmer);font-size:12px">'+M().label+' · '+N()+' cycles per line · '+
+      M().lines+' lines per frame · '+LINETYPES[state.line].label.toLowerCase()+'</p>';
+    return;
+  }
+  const o=LINE[c-1];
+  const lt=LINETYPES[state.line];
+
+  const zone = !isVisible(c) ? "horizontal blanking"
+             : inDisplayColumn(c) ? "display column" : "border";
+
+  let h='<div class="head"><div class="cy">cycle '+c+'<small> / '+N()+'</small></div>'+
+        '<div class="tag">X '+hex(o.x,3)+'</div>'+
+        '<div class="tag">'+zone+'</div>'+
+        (state.pin===c?'<div class="tag" style="color:var(--hot);border-color:var(--hot)">pinned</div>':'')+
+        '</div>';
+
+  const a1=ACCESS_TEXT[o.ph1.t];
+  h+='<dl class="kv">';
+  h+='<dt>ø1 (VIC)</dt><dd>'+a1.n+(o.ph1.t==="p"?" "+o.ph1.spr:"")+
+     (o.ph1.t==="s"?" — sprite "+o.ph1.spr+", byte "+o.ph1.nth+" of 3":"")+
+     '<br><code>'+a1.a+'</code></dd>';
+
+  if(o.ph2.t==="cpu"){
+    h+='<dt>ø2</dt><dd>'+(o.cpu==="free"
+        ? "6510 has the bus"
+        : "6510 may write but stops on the first read — BA is low, AEC has not followed yet")+'</dd>';
+  } else {
+    const a2=ACCESS_TEXT[o.ph2.t];
+    h+='<dt>ø2 (VIC)</dt><dd>'+a2.n+
+       (o.ph2.t==="s"?" — sprite "+o.ph2.spr+", byte "+o.ph2.nth+" of 3":"")+
+       '<br><code>'+a2.a+'</code></dd>';
+  }
+  h+='<dt>BA / AEC</dt><dd>BA '+(o.ba?"low":"high")+', AEC '+(o.aec2?"stays low in ø2":"follows ø2")+'</dd>';
+  h+='<dt>6510</dt><dd>'+(o.cpu==="free"?"free cycle":o.cpu==="write"?"write-only":"stalled")+'</dd>';
+  h+='</dl>';
+
+  h+='<div style="font-size:11px;color:var(--dimmer);font-family:var(--mono);margin-bottom:6px">'+
+     a1.d+'</div>';
+
+  if(o.ops.length){
+    h+='<ul class="ops">';
+    o.ops.forEach(x=>{
+      h+='<li class="'+x.kind+'"><b>'+x.title+'</b><em>'+x.detail+'</em></li>';
+    });
+    h+='</ul>';
+  }
+  el.innerHTML=h;
+}
+
+/* ---------------- tricks panel ---------------- */
+function renderTricks(){
+  const el=$("#tricks"); el.innerHTML="";
+  TRICKS.forEach(t=>{
+    const d=document.createElement("div"); d.className="tk";
+    const h=document.createElement("h3"); h.textContent=t.name;
+    const b=document.createElement("button");
+    b.type="button";
+    b.textContent = t.label || t.cycles().map(wrap).join(", ");
+    b.setAttribute("aria-pressed", state.trick===t.id?"true":"false");
+    b.onclick=()=>{ state.trick = state.trick===t.id?null:t.id; render(); };
+    const p=document.createElement("p"); p.textContent=t.text;
+    d.append(h,b,p); el.appendChild(d);
+  });
+}
+
+/* ---------------- code overlays ---------------- */
+function overlayNominal(sched){
+  const n=N(), ov=document.createElement("div"); ov.className="ovl";
+  sched.rows.forEach(r=>{
+    if(r.nomFrom>n) return;
+    const b=document.createElement("div");
+    b.className="blk nom";
+    b.style.left=((r.nomFrom-1)*COL)+"px";
+    b.style.width=(Math.min(r.ins.n, n-r.nomFrom+1)*COL-3)+"px";
+    b.innerHTML='<span>'+esc(r.ins.text||"?")+'</span><span class="cost">'+r.ins.n+'</span>';
+    b.title="drag to place this instruction \u00b7 shift-click to add it to a group";
+    if(state.sel.has(r.ins.id)) b.classList.add("sel");
+    if(drag && drag.group.some(g=>g.ins===r.ins)) b.classList.add("dragging");
+    b.addEventListener("pointerdown",e=>{
+      if(e.shiftKey){
+        e.preventDefault();
+        if(state.sel.has(r.ins.id)) state.sel.delete(r.ins.id); else state.sel.add(r.ins.id);
+        renderChart(); renderPlanner();
+        return;
+      }
+      beginDrag(e,"move",r.ins);
+    });
+    ov.appendChild(b);
+  });
+  ov.appendChild(startMarker());
+  return ov;
+}
+
+function overlayActual(sched){
+  const n=N(), ov=document.createElement("div"); ov.className="ovl";
+  sched.rows.forEach(r=>{
+    // hatch each stalled cycle
+    r.segs.filter(s=>s.stall).forEach(s=>{
+      if(s.t>n) return;
+      const d=document.createElement("div");
+      d.className="stallblk";
+      d.style.left=((s.t-1)*COL)+"px";
+      d.style.width=(COL-3)+"px";
+      ov.appendChild(d);
+    });
+    const live=r.segs.filter(s=>!s.stall).map(s=>s.t);
+    if(!live.length) return;
+    // draw one block per contiguous run of executed cycles
+    let run=[live[0]];
+    const flush=()=>{
+      const a=run[0], b=run[run.length-1];
+      if(a>n) return;
+      const d=document.createElement("div");
+      d.className="blk act"+(r.stalls?" slow":"")+(r.to>n?" over":"");
+      d.style.left=((a-1)*COL)+"px";
+      d.style.width=((Math.min(b,n)-a+1)*COL-3)+"px";
+      if(a===r.segs.find(s=>!s.stall).t)
+        d.innerHTML='<span>'+esc(r.ins.text||"?")+'</span><span class="cost">'+r.len+'</span>';
+      ov.appendChild(d);
+    };
+    for(let i=1;i<live.length;i++){
+      if(live[i]===run[run.length-1]+1) run.push(live[i]);
+      else { flush(); run=[live[i]]; }
+    }
+    flush();
+  });
+  ov.appendChild(startMarker());
+  return ov;
+}
+
+/* Dragging a block reorders it in the sequence; dragging the empty part of the
+   lane slides the whole block along the line. Listeners live on the window, so
+   re-rendering mid-drag (which replaces the element) does not drop the gesture. */
+let drag=null, dragRAF=null, suppressClick=false;
+
+function dragTo(clientX){
+  if(!drag) return;
+  const delta=Math.round((clientX-drag.x0)/COL), n=N();
+  let changed=false;
+  drag.group.forEach(g=>{
+    const v=Math.max(1,Math.min(n, g.at0+delta));
+    if(g.ins.at!==v){ g.ins.at=v; changed=true; }
+  });
+  if(!changed) return;
+  if(drag.mode==="all"){
+    const f=$("#startcy"); const lo=Math.min(...state.code.instrs.map(i=>i.at));
+    state.code.start=lo; if(f) f.value=lo;
+  }
+  if(dragRAF) return;
+  dragRAF=requestAnimationFrame(()=>{ dragRAF=null; renderChart(); renderBudget(); renderPlanner(); });
+}
+
+function beginDrag(e,mode,ins){
+  e.preventDefault();
+  let members;
+  if(mode==="all") members=state.code.instrs.slice();
+  else if(state.sel.has(ins.id)) members=state.code.instrs.filter(i=>state.sel.has(i.id));
+  else { state.sel.clear(); members=[ins]; }
+  drag={ mode, group:members.map(i=>({ins:i, at0:i.at})), x0:e.clientX, moved:false };
+  window.addEventListener("pointermove",onDragMove);
+  window.addEventListener("pointerup",endDrag);
+  window.addEventListener("pointercancel",endDrag);
+  renderChart();
+}
+function onDragMove(e){
+  if(!drag) return;
+  if(Math.abs(e.clientX-drag.x0)>2) drag.moved=true;
+  dragTo(e.clientX);
+}
+function endDrag(){
+  if(!drag) return;
+  const moved=drag.moved;
+  drag=null;
+  window.removeEventListener("pointermove",onDragMove);
+  window.removeEventListener("pointerup",endDrag);
+  window.removeEventListener("pointercancel",endDrag);
+  if(moved){ suppressClick=true; setTimeout(()=>{suppressClick=false;},0); }
+  saveCode(); renderChart(); renderBudget(); renderPlanner();
+}
+
+function startMarker(){
+  const m=document.createElement("div");
+  m.className="startmk";
+  m.style.left=((state.code.start-1)*COL)+"px";
+  return m;
+}
+
+const esc = t => String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------------- tabs ---------------- */
+const TABS=[{k:"code",l:"Code planner"},{k:"tricks",l:"VIC tricks"},{k:"crunch",l:"Sprite crunch"}];
+function renderTabs(){
+  const el=$("#tabs"); el.innerHTML="";
+  TABS.forEach(t=>{
+    const b=document.createElement("button");
+    b.type="button"; b.textContent=t.l; b.setAttribute("role","tab");
+    b.setAttribute("aria-selected", state.tab===t.k?"true":"false");
+    b.onclick=()=>{ state.tab=t.k; renderTabs(); };
+    el.appendChild(b);
+  });
+  document.querySelectorAll(".tabbody").forEach(d=>{
+    d.hidden = d.dataset.tab!==state.tab;
+  });
+}
+
+/* ---------------- planner ---------------- */
+let planRows=[];
+
+function renderPlanner(){
+  const body=$("#instrs"); if(!body) return;
+  const sched=scheduleCode(), n=N();
+  body.innerHTML=""; planRows=[];
+
+  sched.rows.forEach((r,i)=>{
+    const ins=r.ins, tr=document.createElement("tr");
+    const rec={ins};
+
+    const td1=document.createElement("td");
+    const inp=document.createElement("input");
+    inp.className="itext"; inp.value=ins.text; inp.spellcheck=false;
+    inp.placeholder="STA $d015";
+    /* Only the derived R/W strip and the numbers are refreshed here. Rebuilding
+       the table would replace this very input and drop the caret mid-word. */
+    inp.oninput=()=>{
+      ins.text=inp.value;
+      if(!ins.manual){ ins.rw=derivePattern(ins.text,ins.n); drawRW(rec); }
+      saveCode(); renderChart(); renderBudget(); refreshCosts();
+    };
+    td1.appendChild(inp); tr.appendChild(td1);
+
+    const td2=document.createElement("td");
+    const st=document.createElement("div"); st.className="stepper";
+    const mk=(lbl,d)=>{ const b=document.createElement("button"); b.type="button"; b.textContent=lbl;
+      b.onclick=()=>{ ins.n=Math.max(2,Math.min(7,ins.n+d));
+        ins.rw=ins.manual?fitPat(ins.rw,ins.n):derivePattern(ins.text,ins.n); refreshPlan(); }; return b; };
+    const sp=document.createElement("span"); sp.textContent=ins.n;
+    st.append(mk("\u2212",-1),sp,mk("+",1));
+    td2.appendChild(st); tr.appendChild(td2);
+
+    const td3=document.createElement("td");
+    rec.rwCell=td3; tr.appendChild(td3); drawRW(rec);
+
+    const td4=document.createElement("td");
+    const at=document.createElement("input");
+    at.className="num atin"; at.type="number"; at.min="1"; at.max=String(n); at.value=ins.at;
+    at.oninput=()=>{ const v=parseInt(at.value,10);
+      if(!isNaN(v)){ ins.at=Math.max(1,Math.min(n,v)); saveCode(); renderChart(); renderBudget(); refreshCosts(); } };
+    td4.appendChild(at); tr.appendChild(td4);
+
+    const td5=document.createElement("td"); td5.className="cost"; rec.costCell=td5; tr.appendChild(td5);
+    const td6=document.createElement("td"); td6.className="lands"; rec.landsCell=td6; tr.appendChild(td6);
+
+    const td7=document.createElement("td");
+    const del=document.createElement("button"); del.className="del"; del.type="button";
+    del.innerHTML="\u00d7"; del.title="remove";
+    del.onclick=()=>{ state.sel.delete(ins.id);
+      state.code.instrs.splice(state.code.instrs.indexOf(ins),1); refreshPlan(); };
+    td7.appendChild(del); tr.appendChild(td7);
+
+    if(state.sel.has(ins.id)) tr.classList.add("selrow");
+    planRows.push(rec);
+    body.appendChild(tr);
+  });
+  refreshCosts();
+}
+
+function drawRW(rec){
+  const ins=rec.ins, cell=rec.rwCell;
+  cell.innerHTML="";
+  const rw=document.createElement("div"); rw.className="rw";
+  ins.rw.split("").forEach((c,j)=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=c;
+    b.className=c==="W"?"w":"r";
+    b.title="cycle "+(j+1)+" of this instruction \u2014 click to flip read/write";
+    b.onclick=()=>{ const arr=ins.rw.split(""); arr[j]=arr[j]==="R"?"W":"R";
+      ins.rw=arr.join(""); ins.manual=true; drawRW(rec);
+      saveCode(); renderChart(); renderBudget(); refreshCosts(); };
+    rw.appendChild(b);
+  });
+  cell.appendChild(rw);
+}
+
+/* Numbers only — never touches the inputs, so typing is never interrupted. */
+function refreshCosts(){
+  const sched=scheduleCode(), n=N();
+  const byIns=new Map(sched.rows.map(r=>[r.ins,r]));
+  planRows.forEach(rec=>{
+    const r=byIns.get(rec.ins); if(!r) return;
+    rec.costCell.innerHTML = r.stalls
+      ? '<span class="up">'+r.len+'</span> <span style="color:var(--dimmer)">(+'+r.stalls+')</span>'
+      : '<span class="ok">'+r.len+'</span>';
+    rec.landsCell.style.color = r.to>n ? "var(--c64-ltred)" : "var(--dim)";
+    rec.landsCell.textContent = (r.from===r.to?String(r.from):r.from+"\u2013"+r.to) + (r.to>n?" \u21b5":"");
+  });
+
+  const nom=sched.rows.reduce((a,r)=>a+r.ins.n,0);
+  const act=sched.rows.reduce((a,r)=>a+r.len,0);
+  const over=sched.endAct>n;
+  $("#totals").innerHTML = state.code.instrs.length
+    ? '<b class="'+(over?"over":"")+'">'+act+'</b>real cycles ('+nom+' on paper)'
+    : '<span style="color:var(--dimmer)">nothing scheduled</span>';
+
+  const note=$("#plannote");
+  if(!state.code.instrs.length){
+    note.textContent="Add instructions and drag them along the line. The upper lane is what you would count on paper; the lower one is where they actually land once the VIC steals cycles. Only read cycles can be stolen — a write goes through even with BA already low, which is the whole reason you get three cycles of grace before AEC follows.";
+  } else if(over){
+    note.innerHTML='This runs <b style="color:var(--c64-ltred)">'+(sched.endAct-n)+' cycles past the end of the line</b>. '+
+      'The bus pattern repeats on the next line, so the overrun is scheduled against it, but you will be a line late.';
+  } else {
+    const slack=n-sched.endAct;
+    note.innerHTML='Finishes at cycle '+sched.endAct+', leaving <b style="color:var(--c64-ltgreen)">'+slack+' cycles</b> before the line ends'+
+      (act>nom?' &mdash; the VIC cost you <b style="color:var(--c64-yellow)">'+(act-nom)+' extra cycles</b>.':'.');
+  }
+}
+
+function fitPat(rw,n){
+  if(rw.length>n) return rw.slice(0,n);
+  return rw+"R".repeat(n-rw.length);
+}
+function refreshPlan(){ saveCode(); renderChart(); renderBudget(); renderPlanner(); }
+
+/* ---------------- sprite crunch ---------------- */
+/* Åkesson: MCBASE = ((MC | MCBASE) & 0x15) | ((MC & MCBASE) & 0x2a), MC = MCBASE+3.
+   Odd-numbered bits are ANDed, even-numbered bits ORed — consistent with every
+   other bit being stored inverted so MC can be incremented on three successive
+   half-cycles. */
+function Cr(b){ const mc=(b+3)&0x3f; return ((mc|b)&0x15) | ((mc&b)&0x2a); }
+const step3 = b => (b+3)&0x3f;
+const hx = v => v.toString(16).padStart(2,"0");
+
+/* Loops back to the origin. Offset 63 ends the sprite's DMA, so a schedule
+   that lands there is not a loop at all. */
+function crunchLoops(start,maxLen){
+  const found=new Map();
+  (function walk(cur,path){
+    if(path.length>=maxLen) return;
+    for(const nxt of [step3(cur),Cr(cur)]){
+      if(nxt===0x3f) continue;
+      const crunched = nxt!==step3(cur);
+      const p=[...path,{v:nxt,crunch:crunched}];
+      if(nxt===start){ if(!found.has(p.length)) found.set(p.length,p); continue; }
+      if(path.some(q=>q.v===nxt)) continue;
+      walk(nxt,p);
+    }
+  })(start,[]);
+  return found;
+}
+
+function updateCrunch(){
+  const inp=$("#mcin"); if(!inp) return;
+  const raw=inp.value.replace(/[^0-9a-fA-F]/g,"");
+  const out=$("#crout"), hEl=$("#heights"), sEl=$("#schedule");
+  if(raw===""){ out.innerHTML='<span style="color:var(--dimmer)">enter an offset 00–3f</span>';
+                hEl.innerHTML=""; sEl.innerHTML=""; return; }
+  const x=parseInt(raw,16)&0x3f, to=Cr(x), normal=step3(x), dev=to-((x+3));
+  out.innerHTML =
+    'crunch at $'+hx(x)+' \u2192 <b>$'+hx(to)+'</b>'+
+    '<br><span style="color:var(--dimmer)">instead of</span> $'+hx(normal)+
+    ' <span style="color:var(--dimmer)">·</span> <u>'+(dev>0?"+":"")+dev+'</u> bytes';
+
+  const loops=crunchLoops(x,22);
+  const lens=[...loops.keys()].sort((a,b)=>a-b);
+  hEl.innerHTML="";
+  if(!lens.length){
+    hEl.innerHTML='<div style="font-size:12px;color:var(--dimmer);margin:9px 0">No loop returns to this offset, so a sprite starting here always runs to the end.</div>';
+    sEl.innerHTML=""; return;
+  }
+  const lab=document.createElement("div");
+  lab.style.cssText="font-family:var(--mono);font-size:11px;color:var(--dimmer);margin-top:11px";
+  lab.textContent="sprite heights reachable as a loop from $"+hx(x)+":";
+  hEl.appendChild(lab);
+  const row=document.createElement("div"); row.className="hgt";
+  lens.forEach(L=>{
+    const btn=document.createElement("button"); btn.type="button"; btn.textContent=L+" line"+(L>1?"s":"");
+    btn.setAttribute("aria-pressed", state.crunchLen===L?"true":"false");
+    btn.onclick=()=>{ state.crunchLen = state.crunchLen===L?null:L; updateCrunch(); };
+    row.appendChild(btn);
+  });
+  hEl.appendChild(row);
+
+  const pick = state.crunchLen && loops.has(state.crunchLen) ? state.crunchLen : null;
+  if(!pick){ sEl.innerHTML='<i style="font-size:12px;color:var(--dimmer)">Pick a height to see its crunch schedule. Bold offsets are the lines where you clear $d017 at cycle 15.</i>'; return; }
+  const path=loops.get(pick);
+  let html='<i>$'+hx(x)+'</i>';
+  path.forEach(st=>{
+    html+='<span class="arrow">'+(st.crunch?"\u21e2":"\u2192")+'</span>'+
+          (st.crunch?'<b>$'+hx(st.v)+'</b>':'<i>$'+hx(st.v)+'</i>');
+  });
+  const nc=path.filter(s=>s.crunch).length;
+  html+='<div style="font-size:11.5px;color:var(--dimmer);margin-top:7px;line-height:1.6">'+
+        pick+' lines, '+nc+' crunch'+(nc===1?"":"es")+' per repeat. '+
+        'Lay the top-left of the graphic at offset $'+hx(x)+' and the sprite loops forever at this height.</div>';
+  sEl.innerHTML=html;
+}
+
+/* ---------------- keyboard ---------------- */
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT") return;
+  if(e.key==="Escape"){ state.pin=null; repaintHighlight(); renderDetail(); return; }
+  if(e.key==="ArrowLeft"||e.key==="ArrowRight"){
+    const cur = state.pin ?? state.hover ?? 1;
+    state.pin = wrap(cur + (e.key==="ArrowRight"?1:-1));
+    repaintHighlight(); renderDetail();
+    e.preventDefault();
+  }
+});
+
+$("#mcin").addEventListener("input",()=>{ state.crunchLen=null; updateCrunch(); });
+
+/* planner controls */
+$("#addins").onclick=()=>{
+  state.code.instrs.push(mkInstr("STA $d017",4,Math.max(1,Math.min(N(),nextFreeCycle()))));
+  refreshPlan();
+};
+$("#clearins").onclick=()=>{ state.code.instrs=[]; state.sel.clear(); LS.wipe(); refreshPlan(); };
+$("#startcy").addEventListener("input",e=>{
+  const v=parseInt(e.target.value,10);
+  if(isNaN(v)) return;
+  const t=Math.max(1,Math.min(N(),v));
+  if(state.code.instrs.length){
+    const d=t-Math.min(...state.code.instrs.map(i=>i.at));
+    state.code.instrs.forEach(i=>{ i.at=Math.max(1,Math.min(N(),i.at+d)); });
+  }
+  state.code.start=t; refreshPlan();
+});
+$("#startpin").onclick=()=>{
+  const c=state.pin ?? state.hover;
+  if(!c) return;
+  $("#startcy").value=c;
+  $("#startcy").dispatchEvent(new Event("input"));
+};
+
+/* restore the last session, or seed a worked example: sprite-pointer update */
+if(!loadCode()){
+  state.code.instrs=[mkInstr("LDA #$80",2,1),mkInstr("STA $07f8",4,3),
+                     mkInstr("LDA #$81",2,7),mkInstr("STA $07f9",4,9)];
+}
+$("#startcy").value = state.code.start;
+
+render();
+renderSaveNote();
+</script>
+</body>
+</html>
