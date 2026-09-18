@@ -307,6 +307,7 @@
       }
       .cells {
         display: flex;
+        position: relative;
       }
       .cell {
         flex: 0 0 var(--col);
@@ -473,6 +474,77 @@
       }
       .lane.spr.off .spb {
         opacity: 0.28;
+      }
+      .lane.spr .cells {
+        overflow: visible;
+      }
+      .spexp {
+        font-family: var(--mono);
+        font-size: 9px;
+        margin-left: 6px;
+        padding: 1px 4px;
+        border: 1px solid var(--rule2);
+        border-radius: 3px;
+        background: transparent;
+        color: var(--dimmer);
+        cursor: pointer;
+      }
+      .spexp:hover {
+        color: var(--tx);
+      }
+      .spexp[aria-pressed="true"] {
+        background: var(--c64-ltblue);
+        border-color: var(--c64-ltblue);
+        color: #0c1420;
+        font-weight: 700;
+      }
+      .sprpill {
+        position: absolute;
+        top: 1px;
+        bottom: 1px;
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        padding: 0 4px;
+        overflow: hidden;
+        white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        background: #3a4d80;
+        color: #cfe0ff;
+        border: 1px solid #4f6ba8;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        pointer-events: auto;
+      }
+      .sprpill:hover {
+        filter: brightness(1.22);
+      }
+      .sprpill.dragging {
+        cursor: grabbing;
+        filter: brightness(1.35);
+      }
+      .sprpill.sel {
+        background: #4a5f99;
+        border-color: var(--hot);
+        box-shadow: 0 0 0 1px var(--hot);
+      }
+      .sprpop {
+        position: fixed;
+        z-index: 20;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        background: #221d4e;
+        border: 1px solid var(--rule2);
+        border-radius: 4px;
+        padding: 6px 8px;
+      }
+      .sprpop .itext.num {
+        width: 60px;
+        min-width: 0;
       }
 
       /* screen strip */
@@ -1516,6 +1588,8 @@
         line: "bad",
         csel: 1,
         sprites: [false, false, false, false, false, false, false, false],
+        sprPos: Array.from({ length: 8 }, () => ({ x: 0, msb: 0, exp: false })),
+        sprSel: new Set(),
         hover: null,
         pin: null,
         trick: null,
@@ -1539,11 +1613,12 @@
         return i < 3 ? m.s0p + 2 * i : 1 + 2 * (i - 3);
       }
 
-      /* X coordinate at the start of a cycle (verified against Bauer's
-   lightpen example: LP in cycle 20 -> sprite coord $03c). */
+      /* X coordinate at the start of a cycle, shifted by -4 to read in sprite
+   MxX register terms: an unexpanded sprite is fully hidden behind the left
+   border at X=0 and only its rightmost column clears it at X=1. */
       function xAt(c) {
         const m = M();
-        return (m.xStart + 8 * (c - 1)) % m.xWrap;
+        return (((m.xStart + 8 * (c - 1) - 4) % m.xWrap) + m.xWrap) % m.xWrap;
       }
 
       function isVisible(c) {
@@ -1866,6 +1941,9 @@
       ];
 
       const COL = 22; // must match --col in the stylesheet
+      const xPxScale = COL / 8; // screen px per raster-X pixel (COL px = 8 raster-X px/cycle)
+      const SPR_W_UNEXP = 24 * xPxScale; // 24 raster-X px (3 bytes x 8px) unexpanded
+      const SPR_W_EXP = 48 * xPxScale; // expansion doubles the sprite's pixel width
 
       /* Read/write pattern per instruction cycle. The 6510 halts on a read while
    RDY is low, but write cycles always complete — which is exactly why the VIC
@@ -1967,6 +2045,7 @@
               rw: i.rw,
               m: i.manual,
             })),
+            spr: state.sprPos.map((p) => ({ x: p.x, m: p.msb, e: p.exp })),
           }),
         );
         renderSaveNote();
@@ -2002,6 +2081,14 @@
             state.code.instrs.forEach((i) => {
               i.at = t;
               t += i.n;
+            });
+          }
+          if (Array.isArray(o.spr)) {
+            o.spr.slice(0, 8).forEach((p, i) => {
+              if (!p) return;
+              state.sprPos[i].x = Math.max(0, Math.min(255, p.x | 0));
+              state.sprPos[i].msb = p.m ? 1 : 0;
+              state.sprPos[i].exp = !!p.e;
             });
           }
           normalizeCode();
@@ -2276,6 +2363,7 @@
         cells.className = "cells";
         l.append(nm, cells);
         l._cells = cells;
+        l._lname = nm;
         return l;
       }
 
@@ -2385,6 +2473,17 @@
             b.className = "spb " + (o.sprite[i] || "");
             d.appendChild(b);
           });
+          if (state.sprites[i]) {
+            ln._lname.appendChild(sprExpButton(i));
+            ln._cells.appendChild(sprPillOverlay(i));
+            ln._cells.addEventListener("pointerdown", (e) => {
+              if (e.target.closest(".sprpill")) return;
+              if (state.sprSel.size) {
+                state.sprSel.clear();
+                renderChart();
+              }
+            });
+          }
           if (i === 7) ln.classList.add("gap");
           lanes.push(ln);
         }
@@ -2864,6 +2963,242 @@
         renderChart();
         renderBudget();
         renderPlanner();
+      }
+
+      /* Sprite X-position pills: one draggable pill per enabled sprite, showing its
+   MxX/$D010 coordinate. The pill is positioned so it lines up with the "X
+   coord" ruler lane and the cycle columns above it: sprScreenPx(sx) places sx
+   at the same screen pixel xAt(c) would for whichever cycle currently holds
+   that raster-X value, so dragging a pill under cycle 17's column reads the
+   same value xAt(17) does. Mirrors the code-planner's drag pattern above with
+   its own state so the two drags can't interfere with each other. */
+      function sprEffX(p) {
+        return p.x + p.msb * 256;
+      }
+
+      const mod = (v, n) => ((v % n) + n) % n;
+
+      /* Screen px (relative to .cells' left edge) for a raw sx (0-511), calibrated
+   so it agrees with the ruler: sprScreenPx(xAt(c)) === (c - 1) * COL. */
+      function sprScreenPx(sx) {
+        const m = M();
+        const base = mod(m.xStart - 4, m.xWrap);
+        return mod(sx - base, m.xWrap) * xPxScale;
+      }
+
+      function sprExpButton(i) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "spexp";
+        b.textContent = "exp";
+        b.setAttribute("aria-pressed", state.sprPos[i].exp ? "true" : "false");
+        b.title = "sprite " + i + " horizontal expansion (MxXE)";
+        b.onclick = (e) => {
+          e.stopPropagation();
+          state.sprPos[i].exp = !state.sprPos[i].exp;
+          saveCode();
+          renderChart();
+        };
+        return b;
+      }
+
+      function sprPillOverlay(i) {
+        const p = state.sprPos[i];
+        const ov = document.createElement("div");
+        ov.className = "ovl";
+        const b = document.createElement("div");
+        const sx = sprEffX(p);
+        b.className = "sprpill" + (state.sprSel.has(i) ? " sel" : "");
+        if (sprDrag && sprDrag.group.some((g) => g.i === i))
+          b.classList.add("dragging");
+        b.style.left = sprScreenPx(sx) + "px";
+        b.style.width = (p.exp ? SPR_W_EXP : SPR_W_UNEXP) + "px";
+        b.title =
+          "sprite " +
+          i +
+          " · drag to move · click to edit · shift-click to group-select";
+        b.textContent = "#" + i + " " + hex(sx, 3) + (p.msb ? " msb1" : "");
+        b.addEventListener("pointerdown", (e) => sprPillPointerDown(e, i));
+        b.addEventListener("click", (e) => {
+          if (sprSuppressClick) return;
+          e.stopPropagation();
+          openSprEditor(i, b);
+        });
+        ov.appendChild(b);
+        return ov;
+      }
+
+      let sprDrag = null,
+        sprDragRAF = null,
+        sprSuppressClick = false;
+
+      function snapSpriteLeft(i, sx, excludeIdxs) {
+        const THRESH = 3; // raster-X pixels of catch radius
+        let best = null,
+          bestDist = Infinity;
+        for (let j = 0; j < 8; j++) {
+          if (excludeIdxs.includes(j) || !state.sprites[j]) continue;
+          const otherSx = sprEffX(state.sprPos[j]);
+          const d = Math.abs(otherSx - sx);
+          if (d <= THRESH && d < bestDist) {
+            bestDist = d;
+            best = otherSx;
+          }
+        }
+        return best;
+      }
+
+      function sprDragTo(clientX) {
+        if (!sprDrag) return;
+        const deltaRaster = Math.round((clientX - sprDrag.x0) / xPxScale);
+        const idxs = sprDrag.group.map((g) => g.i);
+        let changed = false;
+        sprDrag.group.forEach((g) => {
+          let sx = mod(g.sx0 + deltaRaster, 512);
+          const snapped = snapSpriteLeft(g.i, sx, idxs);
+          if (snapped !== null) sx = snapped;
+          const p = state.sprPos[g.i];
+          const x = sx & 0xff,
+            msb = sx >> 8;
+          if (p.x !== x || p.msb !== msb) {
+            p.x = x;
+            p.msb = msb;
+            changed = true;
+          }
+        });
+        if (!changed) return;
+        if (sprDragRAF) return;
+        sprDragRAF = requestAnimationFrame(() => {
+          sprDragRAF = null;
+          renderChart();
+        });
+      }
+
+      function sprBeginDrag(e, i) {
+        e.preventDefault();
+        let members;
+        if (state.sprSel.has(i)) {
+          members = [...state.sprSel].filter((idx) => state.sprites[idx]);
+        } else {
+          state.sprSel.clear();
+          members = [i];
+        }
+        sprDrag = {
+          group: members.map((idx) => ({
+            i: idx,
+            sx0: sprEffX(state.sprPos[idx]),
+          })),
+          x0: e.clientX,
+          moved: false,
+        };
+        window.addEventListener("pointermove", onSprDragMove);
+        window.addEventListener("pointerup", endSprDrag);
+        window.addEventListener("pointercancel", endSprDrag);
+        renderChart();
+      }
+      function onSprDragMove(e) {
+        if (!sprDrag) return;
+        if (Math.abs(e.clientX - sprDrag.x0) > 2) sprDrag.moved = true;
+        sprDragTo(e.clientX);
+      }
+      function endSprDrag() {
+        if (!sprDrag) return;
+        const moved = sprDrag.moved;
+        sprDrag = null;
+        window.removeEventListener("pointermove", onSprDragMove);
+        window.removeEventListener("pointerup", endSprDrag);
+        window.removeEventListener("pointercancel", endSprDrag);
+        if (moved) {
+          sprSuppressClick = true;
+          setTimeout(() => {
+            sprSuppressClick = false;
+          }, 0);
+        }
+        saveCode();
+        renderChart();
+      }
+
+      function sprPillPointerDown(e, i) {
+        if (e.shiftKey) {
+          e.preventDefault();
+          if (state.sprSel.has(i)) state.sprSel.delete(i);
+          else state.sprSel.add(i);
+          renderChart();
+          return;
+        }
+        sprBeginDrag(e, i);
+      }
+
+      /* Click-to-edit popover: lives outside #chart so renderChart()'s DOM
+   teardown mid-drag/mid-render never destroys it while the user is typing. */
+      let sprEditorPop = null;
+
+      function closeSprEditor() {
+        if (!sprEditorPop) return;
+        document.removeEventListener("pointerdown", sprEditorPop._outside);
+        document.removeEventListener("keydown", sprEditorPop._esc);
+        sprEditorPop.remove();
+        sprEditorPop = null;
+      }
+
+      function openSprEditor(i, anchorEl) {
+        closeSprEditor();
+        const p = state.sprPos[i];
+        const pop = document.createElement("div");
+        pop.className = "sprpop";
+
+        const xIn = document.createElement("input");
+        xIn.className = "itext num";
+        xIn.type = "text";
+        xIn.spellcheck = false;
+        xIn.placeholder = "$018";
+        xIn.value = hex(sprEffX(p), 3);
+        xIn.oninput = () => {
+          const v = parseInt(xIn.value.replace(/^\$/, ""), 16);
+          if (isNaN(v)) return;
+          const clamped = Math.max(0, Math.min(511, v));
+          p.x = clamped & 0xff;
+          p.msb = clamped >> 8;
+          msbBtn.setAttribute("aria-pressed", p.msb ? "true" : "false");
+          saveCode();
+          renderChart();
+        };
+
+        const msbBtn = document.createElement("button");
+        msbBtn.type = "button";
+        msbBtn.className = "sp";
+        msbBtn.textContent = "msb";
+        msbBtn.setAttribute("aria-pressed", p.msb ? "true" : "false");
+        msbBtn.title = "sprite " + i + "'s bit in $d010";
+        msbBtn.onclick = () => {
+          p.msb = p.msb ? 0 : 1;
+          msbBtn.setAttribute("aria-pressed", p.msb ? "true" : "false");
+          xIn.value = hex(sprEffX(p), 3);
+          saveCode();
+          renderChart();
+        };
+
+        pop.append(xIn, msbBtn);
+        document.body.appendChild(pop);
+
+        const r = anchorEl.getBoundingClientRect();
+        pop.style.left = Math.max(4, r.left) + "px";
+        pop.style.top = r.bottom + 4 + "px";
+
+        const outside = (e) => {
+          if (!pop.contains(e.target)) closeSprEditor();
+        };
+        const esc = (e) => {
+          if (e.key === "Escape") closeSprEditor();
+        };
+        setTimeout(() => {
+          document.addEventListener("pointerdown", outside);
+          document.addEventListener("keydown", esc);
+        }, 0);
+        pop._outside = outside;
+        pop._esc = esc;
+        sprEditorPop = pop;
+        xIn.focus();
       }
 
       function startMarker() {
