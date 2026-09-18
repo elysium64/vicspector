@@ -53,6 +53,9 @@
       * {
         box-sizing: border-box;
       }
+      html {
+        scrollbar-gutter: stable;
+      }
       html,
       body {
         margin: 0;
@@ -623,6 +626,30 @@
         border-radius: 2px;
         display: inline-block;
       }
+      .sw-p {
+        background: var(--acc-p);
+      }
+      .sw-s {
+        background: var(--acc-s);
+      }
+      .sw-r {
+        background: var(--acc-r);
+      }
+      .sw-c {
+        background: var(--acc-c);
+      }
+      .sw-g {
+        background: var(--acc-g);
+      }
+      .sw-i {
+        background: var(--acc-i);
+      }
+      .sw-cpu {
+        background: var(--c64-ltgreen);
+      }
+      .sw-cpuw {
+        background: #6c5a3a;
+      }
 
       /* ---------- lower grid ---------- */
       .grid {
@@ -1069,6 +1096,9 @@
         border-radius: 0 0 4px 4px;
         padding: 14px 15px;
       }
+      #detail {
+        min-height: 420px;
+      }
 
       /* ---------- planner ---------- */
       .plan-top {
@@ -1323,6 +1353,76 @@
         padding: 0 1px;
       }
 
+      /* ---------- text utility classes ---------- */
+      .hl-code {
+        color: var(--dim);
+        font-weight: 600;
+      }
+      .txt-dim {
+        color: var(--dim);
+      }
+      .txt-dimmer {
+        color: var(--dimmer);
+      }
+      .txt-dimmer-sm {
+        font-size: 12px;
+        color: var(--dimmer);
+      }
+      .italic-dimmer-sm {
+        font-style: normal;
+        font-size: 12px;
+        color: var(--dimmer);
+      }
+      .tag-hot {
+        color: var(--hot);
+        border-color: var(--hot);
+      }
+      .detail-note {
+        font-size: 11px;
+        color: var(--dimmer);
+        font-family: var(--mono);
+        margin-bottom: 6px;
+      }
+      .hl-red {
+        color: var(--c64-ltred);
+      }
+      .hl-green {
+        color: var(--c64-ltgreen);
+      }
+      .hl-yellow {
+        color: var(--c64-yellow);
+      }
+      .savenote {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--dimmer);
+        padding-bottom: 7px;
+      }
+      .col-instr {
+        width: 32%;
+      }
+      .crunch-intro {
+        font-size: 12.5px;
+        color: var(--dim);
+        max-width: 64ch;
+        margin-bottom: 12px;
+      }
+      .empty-note {
+        font-size: 12px;
+        color: var(--dimmer);
+        margin: 9px 0;
+      }
+      .schedule-note {
+        font-size: 11.5px;
+        color: var(--dimmer);
+        margin-top: 7px;
+        line-height: 1.6;
+      }
+      .detail-placeholder {
+        color: var(--dim);
+        max-width: 52ch;
+      }
+
       @media (prefers-reduced-motion: no-preference) {
         .cell,
         .bar,
@@ -1335,7 +1435,7 @@
   <body>
     <div class="wrap">
       <div class="controls">
-        <h1>VIC-II-spector <span class="ver">v0.2</span></h1>
+        <h1>VIC-II-spector <span class="ver">v0.3</span></h1>
         <div class="ctl push-right">
           <label
             >Sprite DMA
@@ -1363,41 +1463,20 @@
       </div>
 
       <div class="legend">
+        <span><i class="sw sw-p"></i>p — sprite pointer</span>
+        <span><i class="sw sw-s"></i>s — sprite data</span>
+        <span><i class="sw sw-r"></i>r — DRAM refresh</span>
         <span
-          ><i class="sw" style="background: var(--acc-p)"></i>p — sprite
-          pointer</span
+          ><i class="sw sw-c"></i>c — video matrix + colour RAM</span
         >
-        <span
-          ><i class="sw" style="background: var(--acc-s)"></i>s — sprite
-          data</span
-        >
-        <span
-          ><i class="sw" style="background: var(--acc-r)"></i>r — DRAM
-          refresh</span
-        >
-        <span
-          ><i class="sw" style="background: var(--acc-c)"></i>c — video matrix +
-          colour RAM</span
-        >
-        <span
-          ><i class="sw" style="background: var(--acc-g)"></i>g — chargen /
-          bitmap</span
-        >
-        <span
-          ><i class="sw" style="background: var(--acc-i)"></i>i — idle access
-          ($3fff)</span
-        >
-        <span
-          ><i class="sw" style="background: var(--c64-ltgreen)"></i>CPU
-          free</span
-        >
-        <span
-          ><i class="sw" style="background: #6c5a3a"></i>CPU writes only</span
-        >
+        <span><i class="sw sw-g"></i>g — chargen / bitmap</span>
+        <span><i class="sw sw-i"></i>i — idle access ($3fff)</span>
+        <span><i class="sw sw-cpu"></i>CPU free</span>
+        <span><i class="sw sw-cpuw"></i>CPU writes only</span>
       </div>
       <div class="hint">
         Click a column to pin it. ← → to step, Esc to unpin. Drag a block in
-        <b style="color: var(--dim); font-weight: 600">your code</b> to reorder
+        <b class="hl-code">your code</b> to reorder
         it, or drag the lane itself to slide the whole block.
       </div>
 
@@ -1424,21 +1503,13 @@
                   + instruction
                 </button>
                 <button class="ghost" id="clearins" type="button">clear</button>
-                <span
-                  id="savenote"
-                  style="
-                    font-family: var(--mono);
-                    font-size: 10.5px;
-                    color: var(--dimmer);
-                    padding-bottom: 7px;
-                  "
-                ></span>
+                <span id="savenote" class="savenote"></span>
                 <div class="totals" id="totals"></div>
               </div>
               <table class="plan">
                 <thead>
                   <tr>
-                    <th style="width: 32%">instruction</th>
+                    <th class="col-instr">instruction</th>
                     <th>cycles</th>
                     <th>R/W per cycle</th>
                     <th>at</th>
@@ -1457,14 +1528,7 @@
             </div>
 
             <div class="tabbody" data-tab="crunch" hidden>
-              <p
-                style="
-                  font-size: 12.5px;
-                  color: var(--dim);
-                  max-width: 64ch;
-                  margin-bottom: 12px;
-                "
-              >
+              <p class="crunch-intro">
                 Clearing MxYE at cycle 15 catches the chip mid-decision over
                 whether MCBASE should take MC or keep its own value, and it
                 takes a bit-interleaved mixture of both instead. Every offset
@@ -1826,17 +1890,13 @@
           borderOffCycle(),
           "border",
           "Left compare — main border flip-flop resets",
-          "X reaches " +
-            (state.csel ? "24 ($18)" : "31 ($1f)") +
-            ". The border only opens if the vertical border flip-flop is clear. The Y comparison is also evaluated here.",
+          `X reaches ${state.csel ? "24 ($18)" : "31 ($1f)"}. The border only opens if the vertical border flip-flop is clear. The Y comparison is also evaluated here.`,
         );
         push(
           borderOnCycle(),
           "border",
           "Right compare — main border flip-flop sets",
-          "X reaches " +
-            (state.csel ? "344 ($158)" : "335 ($14f)") +
-            ". Switching CSEL from 1 to 0 exactly here is how the side borders come off.",
+          `X reaches ${state.csel ? "344 ($158)" : "335 ($14f)"}. Switching CSEL from 1 to 0 exactly here is how the side borders come off.`,
         );
         push(
           n,
@@ -1862,9 +1922,7 @@
           borderOnCycle(),
           "trick",
           "Open the side borders here",
-          "CSEL 1 → 0 in this exact cycle and the right compare never matches. Switch back at cycle " +
-            borderOffCycle() +
-            " to keep it shut.",
+          `CSEL 1 → 0 in this exact cycle and the right compare never matches. Switch back at cycle ${borderOffCycle()} to keep it shut.`,
         );
         push(
           13,
@@ -2245,14 +2303,7 @@
           b.className = "sp";
           b.type = "button";
           b.textContent = i;
-          b.title =
-            "Sprite " +
-            i +
-            " DMA (fetches in cycles " +
-            spriteP(i) +
-            "–" +
-            wrap(spriteP(i) + 1) +
-            ")";
+          b.title = `Sprite ${i} DMA (fetches in cycles ${spriteP(i)}–${wrap(spriteP(i) + 1)})`;
           b.setAttribute("aria-pressed", state.sprites[i] ? "true" : "false");
           b.onclick = () => {
             state.sprites[i] = !state.sprites[i];
@@ -2304,51 +2355,26 @@
         const over = Math.max(0, sched.endAct - n);
 
         const tight = free + wr <= 8;
-        let h =
-          '<b class="' +
-          (tight ? "tight" : "") +
-          '">' +
-          free +
-          "</b> (CPU cycles free of " +
-          n +
-          ")" +
-          " <em>+" +
-          wr +
-          "</em> more if they are writes";
+        let h = `<b class="${tight ? "tight" : ""}">${free}</b> (CPU cycles free of ${n}) <em>+${wr}</em> more if they are writes`;
         if (realCost) {
           const nom = sched.rows.reduce((a, r) => a + r.ins.n, 0);
-          h +=
-            '<div class="sub2">' +
-            '<span class="ln">&minus; ' +
-            realCost +
-            "</span> used by your code" +
-            (stalled
-              ? ' <span class="w">(' +
-                nom +
-                " on paper, +" +
-                stalled +
-                " stolen)</span>" +
-                ' <span class="w">' +
-                useFree +
-                " of them spent free cycles</span>"
-              : "") +
-            '<br><span class="ln eq' +
-            (leftFree < 0 ? " bad" : "") +
-            '">= ' +
-            (leftFree < 0 ? "\u2212" + -leftFree : leftFree) +
-            "</span> still free" +
-            (leftFree < 0 ? ' <span class="w">over budget</span>' : "") +
-            (leftWr > 0
-              ? ' <span class="w">+' + leftWr + " write-only</span>"
-              : "") +
-            (over
-              ? '<br><span class="w">runs ' +
-                over +
-                " cycle" +
-                (over > 1 ? "s" : "") +
-                " past the end of the line</span>"
-              : "") +
-            "</div>";
+          h += `<div class="sub2"><span class="ln">&minus; ${realCost}</span> used by your code${
+            stalled
+              ? ` <span class="w">(${nom} on paper, +${stalled} stolen)</span> <span class="w">${useFree} of them spent free cycles</span>`
+              : ""
+          }<br><span class="ln eq${leftFree < 0 ? " bad" : ""}">= ${
+            leftFree < 0 ? "\u2212" + -leftFree : leftFree
+          }</span> still free${
+            leftFree < 0 ? ' <span class="w">over budget</span>' : ""
+          }${
+            leftWr > 0 ? ` <span class="w">+${leftWr} write-only</span>` : ""
+          }${
+            over
+              ? `<br><span class="w">runs ${over} cycle${
+                  over > 1 ? "s" : ""
+                } past the end of the line</span>`
+              : ""
+          }</div>`;
         }
         $("#budget").innerHTML = h;
       }
@@ -2406,13 +2432,9 @@
         LINE.forEach((o) => {
           const d = cellFor(ls, o);
           const px = document.createElement("div");
-          px.className =
-            "px " +
-            (!isVisible(o.c)
-              ? "blank"
-              : inDisplayColumn(o.c)
-                ? "disp"
-                : "border");
+          px.className = `px ${
+            !isVisible(o.c) ? "blank" : inDisplayColumn(o.c) ? "disp" : "border"
+          }`;
           d.appendChild(px);
         });
         ls.classList.add("gap");
@@ -2451,9 +2473,7 @@
         LINE.forEach((o) => {
           const d = cellFor(lc, o);
           const b = document.createElement("div");
-          b.className =
-            "cpubox " +
-            (o.cpu === "free" ? "free" : o.cpu === "write" ? "wr" : "stall");
+          b.className = `cpubox ${o.cpu === "free" ? "free" : o.cpu === "write" ? "wr" : "stall"}`;
           b.textContent = o.cpu === "free" ? "·" : o.cpu === "write" ? "w" : "";
           d.appendChild(b);
         });
@@ -2596,16 +2616,10 @@
       function halfEl(a) {
         const h = document.createElement("div");
         if (a.t === "cpu") {
-          h.className =
-            "half " +
-            (a.cpu === "free"
-              ? "a-cpu"
-              : a.cpu === "write"
-                ? "a-cpuw"
-                : "a-cpu");
+          h.className = `half ${a.cpu === "free" ? "a-cpu" : a.cpu === "write" ? "a-cpuw" : "a-cpu"}`;
           h.textContent = a.cpu === "write" ? "w" : "·";
         } else {
-          h.className = "half a-" + a.t;
+          h.className = `half a-${a.t}`;
           h.textContent = a.t === "p" ? String(a.spr) : a.t;
         }
         return h;
@@ -2657,19 +2671,7 @@
         const el = $("#detail");
         const c = state.pin ?? state.hover;
         if (!c) {
-          el.innerHTML =
-            '<p style="color:var(--dim);max-width:52ch">' +
-            "Move along the chart and this fills in: which access the VIC makes in each half cycle, what the CPU can still do, " +
-            "and which of the chip's internal counters change.</p>" +
-            '<p style="color:var(--dimmer);font-size:12px">' +
-            M().label +
-            " · " +
-            N() +
-            " cycles per line · " +
-            M().lines +
-            " lines per frame · " +
-            LINETYPES[state.line].label.toLowerCase() +
-            "</p>";
+          el.innerHTML = `<p class="detail-placeholder">Move along the chart and this fills in: which access the VIC makes in each half cycle, what the CPU can still do, and which of the chip's internal counters change.</p><p class="txt-dimmer-sm">${M().label} · ${N()} cycles per line · ${M().lines} lines per frame · ${LINETYPES[state.line].label.toLowerCase()}</p>`;
           return;
         }
         const o = LINE[c - 1];
@@ -2681,87 +2683,54 @@
             ? "display column"
             : "border";
 
-        let h =
-          '<div class="head"><div class="cy">cycle ' +
-          c +
-          "<small> / " +
-          N() +
-          "</small></div>" +
-          '<div class="tag">X ' +
-          hex(o.x, 3) +
-          "</div>" +
-          '<div class="tag">' +
-          zone +
-          "</div>" +
-          (state.pin === c
-            ? '<div class="tag" style="color:var(--hot);border-color:var(--hot)">pinned</div>'
-            : "") +
-          "</div>";
+        let h = `<div class="head"><div class="cy">cycle ${c}<small> / ${N()}</small></div><div class="tag">X ${hex(o.x, 3)}</div><div class="tag">${zone}</div>${
+          state.pin === c
+            ? '<div class="tag tag-hot">pinned</div>'
+            : ""
+        }</div>`;
 
         const a1 = ACCESS_TEXT[o.ph1.t];
         h += '<dl class="kv">';
-        h +=
-          "<dt>ø1 (VIC)</dt><dd>" +
-          a1.n +
-          (o.ph1.t === "p" ? " " + o.ph1.spr : "") +
-          (o.ph1.t === "s"
-            ? " — sprite " + o.ph1.spr + ", byte " + o.ph1.nth + " of 3"
-            : "") +
-          "<br><code>" +
-          a1.a +
-          "</code></dd>";
+        h += `<dt>ø1 (VIC)</dt><dd>${a1.n}${
+          o.ph1.t === "p" ? " " + o.ph1.spr : ""
+        }${
+          o.ph1.t === "s"
+            ? ` — sprite ${o.ph1.spr}, byte ${o.ph1.nth} of 3`
+            : ""
+        }<br><code>${a1.a}</code></dd>`;
 
         if (o.ph2.t === "cpu") {
-          h +=
-            "<dt>ø2</dt><dd>" +
-            (o.cpu === "free"
+          h += `<dt>ø2</dt><dd>${
+            o.cpu === "free"
               ? "6510 has the bus"
-              : "6510 may write but stops on the first read — BA is low, AEC has not followed yet") +
-            "</dd>";
+              : "6510 may write but stops on the first read — BA is low, AEC has not followed yet"
+          }</dd>`;
         } else {
           const a2 = ACCESS_TEXT[o.ph2.t];
-          h +=
-            "<dt>ø2 (VIC)</dt><dd>" +
-            a2.n +
-            (o.ph2.t === "s"
-              ? " — sprite " + o.ph2.spr + ", byte " + o.ph2.nth + " of 3"
-              : "") +
-            "<br><code>" +
-            a2.a +
-            "</code></dd>";
+          h += `<dt>ø2 (VIC)</dt><dd>${a2.n}${
+            o.ph2.t === "s"
+              ? ` — sprite ${o.ph2.spr}, byte ${o.ph2.nth} of 3`
+              : ""
+          }<br><code>${a2.a}</code></dd>`;
         }
-        h +=
-          "<dt>BA / AEC</dt><dd>BA " +
-          (o.ba ? "low" : "high") +
-          ", AEC " +
-          (o.aec2 ? "stays low in ø2" : "follows ø2") +
-          "</dd>";
-        h +=
-          "<dt>6510</dt><dd>" +
-          (o.cpu === "free"
+        h += `<dt>BA / AEC</dt><dd>BA ${o.ba ? "low" : "high"}, AEC ${
+          o.aec2 ? "stays low in ø2" : "follows ø2"
+        }</dd>`;
+        h += `<dt>6510</dt><dd>${
+          o.cpu === "free"
             ? "free cycle"
             : o.cpu === "write"
               ? "write-only"
-              : "stalled") +
-          "</dd>";
+              : "stalled"
+        }</dd>`;
         h += "</dl>";
 
-        h +=
-          '<div style="font-size:11px;color:var(--dimmer);font-family:var(--mono);margin-bottom:6px">' +
-          a1.d +
-          "</div>";
+        h += `<div class="detail-note">${a1.d}</div>`;
 
         if (o.ops.length) {
           h += '<ul class="ops">';
           o.ops.forEach((x) => {
-            h +=
-              '<li class="' +
-              x.kind +
-              '"><b>' +
-              x.title +
-              "</b><em>" +
-              x.detail +
-              "</em></li>";
+            h += `<li class="${x.kind}"><b>${x.title}</b><em>${x.detail}</em></li>`;
           });
           h += "</ul>";
         }
@@ -2806,12 +2775,7 @@
           b.className = "blk nom";
           b.style.left = (r.nomFrom - 1) * COL + "px";
           b.style.width = Math.min(r.ins.n, n - r.nomFrom + 1) * COL - 3 + "px";
-          b.innerHTML =
-            "<span>" +
-            esc(r.ins.text || "?") +
-            '</span><span class="cost">' +
-            r.ins.n +
-            "</span>";
+          b.innerHTML = `<span>${esc(r.ins.text || "?")}</span><span class="cost">${r.ins.n}</span>`;
           b.title =
             "drag to place this instruction \u00b7 shift-click to add it to a group";
           if (state.sel.has(r.ins.id)) b.classList.add("sel");
@@ -2864,12 +2828,7 @@
             d.style.left = (a - 1) * COL + "px";
             d.style.width = (Math.min(b, n) - a + 1) * COL - 3 + "px";
             if (a === r.segs.find((s) => !s.stall).t)
-              d.innerHTML =
-                "<span>" +
-                esc(r.ins.text || "?") +
-                '</span><span class="cost">' +
-                r.len +
-                "</span>";
+              d.innerHTML = `<span>${esc(r.ins.text || "?")}</span><span class="cost">${r.len}</span>`;
             ov.appendChild(d);
           };
           for (let i = 1; i < live.length; i++) {
@@ -3366,10 +3325,7 @@
           b.type = "button";
           b.textContent = c;
           b.className = c === "W" ? "w" : "r";
-          b.title =
-            "cycle " +
-            (j + 1) +
-            " of this instruction \u2014 click to flip read/write";
+          b.title = `cycle ${j + 1} of this instruction \u2014 click to flip read/write`;
           b.onclick = () => {
             const arr = ins.rw.split("");
             arr[j] = arr[j] === "R" ? "W" : "R";
@@ -3395,55 +3351,37 @@
           const r = byIns.get(rec.ins);
           if (!r) return;
           rec.costCell.innerHTML = r.stalls
-            ? '<span class="up">' +
-              r.len +
-              '</span> <span style="color:var(--dimmer)">(+' +
-              r.stalls +
-              ")</span>"
-            : '<span class="ok">' + r.len + "</span>";
+            ? `<span class="up">${r.len}</span> <span class="txt-dimmer">(+${r.stalls})</span>`
+            : `<span class="ok">${r.len}</span>`;
           rec.landsCell.style.color =
             r.to > n ? "var(--c64-ltred)" : "var(--dim)";
-          rec.landsCell.textContent =
-            (r.from === r.to ? String(r.from) : r.from + "\u2013" + r.to) +
-            (r.to > n ? " \u21b5" : "");
+          rec.landsCell.textContent = `${
+            r.from === r.to ? String(r.from) : r.from + "\u2013" + r.to
+          }${r.to > n ? " \u21b5" : ""}`;
         });
 
         const nom = sched.rows.reduce((a, r) => a + r.ins.n, 0);
         const act = sched.rows.reduce((a, r) => a + r.len, 0);
         const over = sched.endAct > n;
         $("#totals").innerHTML = state.code.instrs.length
-          ? '<b class="' +
-            (over ? "over" : "") +
-            '">' +
-            act +
-            "</b>real cycles (" +
-            nom +
-            " on paper)"
-          : '<span style="color:var(--dimmer)">nothing scheduled</span>';
+          ? `<b class="${over ? "over" : ""}">${act}</b>real cycles (${nom} on paper)`
+          : '<span class="txt-dimmer">nothing scheduled</span>';
 
         const note = $("#plannote");
         if (!state.code.instrs.length) {
           note.textContent =
             "Add instructions and drag them along the line. The upper lane is what you would count on paper; the lower one is where they actually land once the VIC steals cycles. Only read cycles can be stolen — a write goes through even with BA already low, which is the whole reason you get three cycles of grace before AEC follows.";
         } else if (over) {
-          note.innerHTML =
-            'This runs <b style="color:var(--c64-ltred)">' +
-            (sched.endAct - n) +
-            " cycles past the end of the line</b>. " +
-            "The bus pattern repeats on the next line, so the overrun is scheduled against it, but you will be a line late.";
+          note.innerHTML = `This runs <b class="hl-red">${
+            sched.endAct - n
+          } cycles past the end of the line</b>. The bus pattern repeats on the next line, so the overrun is scheduled against it, but you will be a line late.`;
         } else {
           const slack = n - sched.endAct;
-          note.innerHTML =
-            "Finishes at cycle " +
-            sched.endAct +
-            ', leaving <b style="color:var(--c64-ltgreen)">' +
-            slack +
-            " cycles</b> before the line ends" +
-            (act > nom
-              ? ' &mdash; the VIC cost you <b style="color:var(--c64-yellow)">' +
-                (act - nom) +
-                " extra cycles</b>."
-              : ".");
+          note.innerHTML = `Finishes at cycle ${sched.endAct}, leaving <b class="hl-green">${slack} cycles</b> before the line ends${
+            act > nom
+              ? ` &mdash; the VIC cost you <b class="hl-yellow">${act - nom} extra cycles</b>.`
+              : "."
+          }`;
         }
       }
 
@@ -3500,7 +3438,7 @@
           sEl = $("#schedule");
         if (raw === "") {
           out.innerHTML =
-            '<span style="color:var(--dimmer)">enter an offset 00–3f</span>';
+            '<span class="txt-dimmer">enter an offset 00–3f</span>';
           hEl.innerHTML = "";
           sEl.innerHTML = "";
           return;
@@ -3509,25 +3447,14 @@
           to = Cr(x),
           normal = step3(x),
           dev = to - (x + 3);
-        out.innerHTML =
-          "crunch at $" +
-          hx(x) +
-          " \u2192 <b>$" +
-          hx(to) +
-          "</b>" +
-          '<br><span style="color:var(--dimmer)">instead of</span> $' +
-          hx(normal) +
-          ' <span style="color:var(--dimmer)">·</span> <u>' +
-          (dev > 0 ? "+" : "") +
-          dev +
-          "</u> bytes";
+        out.innerHTML = `crunch at $${hx(x)} \u2192 <b>$${hx(to)}</b><br><span class="txt-dimmer">instead of</span> $${hx(normal)} <span class="txt-dimmer">·</span> <u>${dev > 0 ? "+" : ""}${dev}</u> bytes`;
 
         const loops = crunchLoops(x, 22);
         const lens = [...loops.keys()].sort((a, b) => a - b);
         hEl.innerHTML = "";
         if (!lens.length) {
           hEl.innerHTML =
-            '<div style="font-size:12px;color:var(--dimmer);margin:9px 0">No loop returns to this offset, so a sprite starting here always runs to the end.</div>';
+            '<div class="empty-note">No loop returns to this offset, so a sprite starting here always runs to the end.</div>';
           sEl.innerHTML = "";
           return;
         }
@@ -3561,32 +3488,20 @@
             : null;
         if (!pick) {
           sEl.innerHTML =
-            '<i style="font-size:12px;color:var(--dimmer)">Pick a height to see its crunch schedule. Bold offsets are the lines where you clear $d017 at cycle 15.</i>';
+            '<i class="italic-dimmer-sm">Pick a height to see its crunch schedule. Bold offsets are the lines where you clear $d017 at cycle 15.</i>';
           return;
         }
         const path = loops.get(pick);
-        let html = "<i>$" + hx(x) + "</i>";
+        let html = `<i>$${hx(x)}</i>`;
         path.forEach((st) => {
-          html +=
-            '<span class="arrow">' +
-            (st.crunch ? "\u21e2" : "\u2192") +
-            "</span>" +
-            (st.crunch
-              ? "<b>$" + hx(st.v) + "</b>"
-              : "<i>$" + hx(st.v) + "</i>");
+          html += `<span class="arrow">${st.crunch ? "\u21e2" : "\u2192"}</span>${
+            st.crunch ? `<b>$${hx(st.v)}</b>` : `<i>$${hx(st.v)}</i>`
+          }`;
         });
         const nc = path.filter((s) => s.crunch).length;
-        html +=
-          '<div style="font-size:11.5px;color:var(--dimmer);margin-top:7px;line-height:1.6">' +
-          pick +
-          " lines, " +
-          nc +
-          " crunch" +
-          (nc === 1 ? "" : "es") +
-          " per repeat. " +
-          "Lay the top-left of the graphic at offset $" +
-          hx(x) +
-          " and the sprite loops forever at this height.</div>";
+        html += `<div class="schedule-note">${pick} lines, ${nc} crunch${
+          nc === 1 ? "" : "es"
+        } per repeat. Lay the top-left of the graphic at offset $${hx(x)} and the sprite loops forever at this height.</div>`;
         sEl.innerHTML = html;
       }
 
